@@ -76,3 +76,4 @@ public class PacienteServicioEnMemoria : IPacienteServicio
         return _pacientes.Remove(item);
     }
 }
+

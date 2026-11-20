@@ -97,3 +97,4 @@ public class CitaServicioEnMemoria(IPacienteServicio pacienteServicio, IMedicoSe
         return _citas.Remove(item);
     }
 }
+

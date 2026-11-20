@@ -73,3 +73,4 @@ public class MedicoServicioEnMemoria : IMedicoServicio
         return _medicos.Remove(item);
     }
 }
+
