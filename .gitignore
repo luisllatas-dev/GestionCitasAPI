@@ -27,3 +27,7 @@ bld/
 .DS_Store
 Thumbs.db
 
+## Notas y apuntes personales (ignorados por Git)
+Apuntes/
+
+
