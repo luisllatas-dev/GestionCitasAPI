@@ -1,6 +1,40 @@
 @GestionCitasAPI_HostAddress = http://localhost:5026
 
-GET {{GestionCitasAPI_HostAddress}}/weatherforecast/
+### 1. Listar todos los pacientes
+GET {{GestionCitasAPI_HostAddress}}/api/pacientes
 Accept: application/json
 
-###
+### 2. Crear un nuevo paciente
+POST {{GestionCitasAPI_HostAddress}}/api/pacientes
+Content-Type: application/json
+
+{
+  "nombres": "Luis Alberto",
+  "apellidos": "Ramos Silva",
+  "dni": "70112233",
+  "telefono": "999888777",
+  "correo": "luis.ramos@correo.com"
+}
+
+### 3. Listar todos los médicos
+GET {{GestionCitasAPI_HostAddress}}/api/medicos
+Accept: application/json
+
+### 4. Listar todas las citas
+GET {{GestionCitasAPI_HostAddress}}/api/citas
+Accept: application/json
+
+### 5. Agendar una nueva cita
+POST {{GestionCitasAPI_HostAddress}}/api/citas
+Content-Type: application/json
+
+{
+  "pacienteId": 1,
+  "medicoId": 101,
+  "fechaHora": "2026-12-05T10:00:00",
+  "motivo": "Control cardiológico"
+}
+
+### 6. Simular error 500 (RFC 7807 ProblemDetails)
+GET {{GestionCitasAPI_HostAddress}}/api/citas/simular-error-500
+Accept: application/json

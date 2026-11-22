@@ -56,3 +56,4 @@ public class ManejadorExcepcionesMiddleware(RequestDelegate next, ILogger<Maneja
         return context.Response.WriteAsync(JsonSerializer.Serialize(problema, opciones));
     }
 }
+
