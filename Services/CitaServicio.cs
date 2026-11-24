@@ -1,99 +1,69 @@
-namespace GestionCitasAPI.Services;
-
+// Reemplaza el CRUD sin validaciones por reservas coherentes con RN04–RN07.
+// La fecha, médico y especialidad se derivan del turno: el cliente no puede enviar datos contradictorios.
 using GestionCitasAPI.Models;
-
+namespace GestionCitasAPI.Services;
 public interface ICitaServicio
 {
     List<CitaItemDto> ListarTodas();
-    CitaItemDto? BuscarPorId(int id);
+    CitaItemDto BuscarPorId(int id);
     CitaItemDto Registrar(CrearCitaDto dto);
-    CitaItemDto? Actualizar(int id, CrearCitaDto dto);
-    bool Eliminar(int id);
+    CitaItemDto Actualizar(int id, ActualizarCitaDto dto);
+    CitaItemDto Cancelar(int id, CancelarCitaDto dto);
+    void Eliminar(int id);
 }
-
-/// <summary>
-/// Servicio en memoria para el CRUD Básico de Citas con Auditoría (RN-CIT-07).
-/// Recibe IPacienteServicio e IMedicoServicio por Inyección de Dependencias para obtener sus nombres y especialidad.
-/// </summary>
-public class CitaServicioEnMemoria(IPacienteServicio pacienteServicio, IMedicoServicio medicoServicio) : ICitaServicio
+public sealed class CitaServicioEnMemoria(AlmacenEnMemoria almacen) : ICitaServicio
 {
-    private readonly List<CitaItemDto> _citas = new()
+    public List<CitaItemDto> ListarTodas() { lock (almacen.Compuerta) return almacen.Citas.Values.OrderBy(c => c.FechaHora).ToList(); }
+    public CitaItemDto BuscarPorId(int id) { lock (almacen.Compuerta) return ReglasComunes.Obtener(almacen.Citas, id); }
+    private (PacienteItemDto paciente, MedicoItemDto medico, EspecialidadItemDto especialidad, DateTime inicio) ValidarReserva(int pacienteId, int programacionId, TimeOnly hora, int excluir = 0)
     {
-        new(
-            Id: 1001,
-            PacienteId: 1,
-            NombrePaciente: "Juan Carlos Pérez Gómez",
-            MedicoId: 101,
-            NombreMedico: "Roberto Sánchez Mendoza",
-            Especialidad: "Cardiología",
-            FechaHora: DateTime.Now.AddDays(2).Date.AddHours(10),
-            Motivo: "Chequeo preventivo anual",
-            Estado: "Programada",
-            FechaCreacion: DateTime.Now.AddDays(-1),
-            FechaActualizacion: null
-        )
-    };
-
-    public List<CitaItemDto> ListarTodas() => _citas.ToList();
-
-    public CitaItemDto? BuscarPorId(int id) => _citas.FirstOrDefault(c => c.Id == id);
-
+        var paciente = ReglasComunes.Obtener(almacen.Pacientes, pacienteId);
+        var p = ReglasComunes.Obtener(almacen.Programaciones, programacionId);
+        var medico = ReglasComunes.Obtener(almacen.Medicos, p.MedicoId);
+        var especialidad = ReglasComunes.Obtener(almacen.Especialidades, p.EspecialidadId);
+        ReglasComunes.Exigir(paciente.Activo && p.Activo && medico.Activo && especialidad.Activo, "Paciente, médico, especialidad y programación deben estar activos.", 409);
+        var inicio = p.Fecha.ToDateTime(hora); var fin = inicio.AddMinutes(20);
+        var diferencia = hora.ToTimeSpan() - p.HoraInicio.ToTimeSpan();
+        ReglasComunes.Exigir(inicio > ReglasComunes.Ahora, "No se puede reservar en el pasado.");
+        ReglasComunes.Exigir(diferencia.Ticks >= 0 && diferencia.Ticks % TimeSpan.FromMinutes(20).Ticks == 0 && fin <= p.Fecha.ToDateTime(p.HoraFin), "Seleccione un bloque completo de 20 minutos dentro del turno.");
+        ReglasComunes.Exigir(!almacen.Citas.Values.Any(c => c.Id != excluir && c.Estado == "Programada" && (c.PacienteId == pacienteId || c.MedicoId == medico.Id) && ReglasComunes.Cruza(inicio, fin, c.FechaHora, c.FechaHoraFin)), "El médico o el paciente ya tiene una cita en ese horario.", 409);
+        return (paciente, medico, especialidad, inicio);
+    }
     public CitaItemDto Registrar(CrearCitaDto dto)
     {
-        var paciente = pacienteServicio.BuscarPorId(dto.PacienteId);
-        var medico = medicoServicio.BuscarPorId(dto.MedicoId);
-
-        int nuevoId = _citas.Any() ? _citas.Max(c => c.Id) + 1 : 1001;
-
-        // RN-CIT-06 y RN-CIT-07: Estado inicial "Programada", FechaCreacion = DateTime.Now
-        var nueva = new CitaItemDto(
-            Id: nuevoId,
-            PacienteId: dto.PacienteId,
-            NombrePaciente: paciente?.NombreCompleto ?? "Paciente no especificado",
-            MedicoId: dto.MedicoId,
-            NombreMedico: medico?.NombreCompleto ?? "Médico no especificado",
-            Especialidad: medico?.NombreEspecialidad ?? "Sin especialidad",
-            FechaHora: dto.FechaHora,
-            Motivo: dto.Motivo,
-            Estado: "Programada",
-            FechaCreacion: DateTime.Now,
-            FechaActualizacion: null
-        );
-
-        _citas.Add(nueva);
-        return nueva;
-    }
-
-    public CitaItemDto? Actualizar(int id, CrearCitaDto dto)
-    {
-        int index = _citas.FindIndex(c => c.Id == id);
-        if (index == -1) return null;
-
-        var existente = _citas[index];
-        var paciente = pacienteServicio.BuscarPorId(dto.PacienteId);
-        var medico = medicoServicio.BuscarPorId(dto.MedicoId);
-
-        // RN-CIT-07 (Auditoría): Conserva FechaCreacion y actualiza FechaActualizacion
-        var actualizada = existente with
+        // La misma compuerta cubre consulta y guardado: dos solicitudes no reservan el mismo espacio.
+        lock (almacen.Compuerta)
         {
-            PacienteId = dto.PacienteId,
-            NombrePaciente = paciente?.NombreCompleto ?? existente.NombrePaciente,
-            MedicoId = dto.MedicoId,
-            NombreMedico = medico?.NombreCompleto ?? existente.NombreMedico,
-            Especialidad = medico?.NombreEspecialidad ?? existente.Especialidad,
-            FechaHora = dto.FechaHora,
-            Motivo = dto.Motivo,
-            FechaActualizacion = DateTime.Now
-        };
-
-        _citas[index] = actualizada;
-        return actualizada;
+            ReglasComunes.Validar(dto); MotivoValido(dto.Motivo);
+            var v = ValidarReserva(dto.PacienteId, dto.ProgramacionId, dto.HoraInicio!.Value);
+            var nueva = new CitaItemDto(++almacen.UltimaCita, dto.PacienteId, v.paciente.NombreCompleto, dto.ProgramacionId, v.medico.Id, v.medico.NombreCompleto, v.especialidad.Nombre, v.inicio, v.inicio.AddMinutes(20), dto.Motivo.Trim(), "Programada", null, ReglasComunes.Ahora, null);
+            almacen.Citas.Add(nueva.Id, nueva); return nueva;
+        }
     }
-
-    public bool Eliminar(int id)
+    public CitaItemDto Actualizar(int id, ActualizarCitaDto dto)
     {
-        var item = BuscarPorId(id);
-        if (item is null) return false;
-        return _citas.Remove(item);
+        lock (almacen.Compuerta)
+        {
+            var c = BuscarPorId(id); ReglasComunes.Validar(dto); MotivoValido(dto.Motivo); Editable(c);
+            var v = ValidarReserva(c.PacienteId, dto.ProgramacionId, dto.HoraInicio!.Value, id);
+            // Recién después de validar se sustituye la cita. Un error deja el original intacto.
+            var nueva = c with { ProgramacionId = dto.ProgramacionId, MedicoId = v.medico.Id, NombreMedico = v.medico.NombreCompleto, Especialidad = v.especialidad.Nombre, FechaHora = v.inicio, FechaHoraFin = v.inicio.AddMinutes(20), Motivo = dto.Motivo.Trim(), FechaActualizacion = ReglasComunes.Ahora };
+            almacen.Citas[id] = nueva; return nueva;
+        }
     }
+    public CitaItemDto Cancelar(int id, CancelarCitaDto dto)
+    {
+        lock (almacen.Compuerta)
+        {
+            var c = BuscarPorId(id); ReglasComunes.Validar(dto); MotivoValido(dto.Motivo);
+            if (c.Estado == "Cancelada") return c; // Repetir la solicitud conserva la primera cancelación.
+            Editable(c);
+            var nueva = c with { Estado = "Cancelada", MotivoCancelacion = dto.Motivo.Trim(), FechaActualizacion = ReglasComunes.Ahora };
+            almacen.Citas[id] = nueva; return nueva;
+        }
+    }
+    private static void Editable(CitaItemDto c) => ReglasComunes.Exigir(c.Estado == "Programada" && c.FechaHora > ReglasComunes.Ahora, "Solo se modifican o cancelan citas programadas que todavía no comenzaron.", 409);
+    private static void MotivoValido(string motivo) => ReglasComunes.Exigir(motivo.Trim().Length >= 3, "El motivo debe tener al menos 3 caracteres útiles.");
+    /// <summary>DELETE demuestra borrado físico; para conservar historia se debe usar cancelación.</summary>
+    public void Eliminar(int id) { lock (almacen.Compuerta) { BuscarPorId(id); almacen.Citas.Remove(id); } }
 }

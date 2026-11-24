@@ -1,32 +1,44 @@
+// MedicoDtos.cs: define los datos que recibe y devuelve la API.
+using System.ComponentModel.DataAnnotations;
+
 namespace GestionCitasAPI.Models;
 
-/// <summary>
-/// DTO de salida que representa a un Médico registrado, vinculado a una Especialidad por su ID y con campos de auditoría.
-/// </summary>
-public record MedicoItemDto(
+// DTO de salida: devuelve los datos del médico, su ID y fechas.
+// sealed impide que otro record herede de este.
+public sealed record MedicoItemDto(
     int Id,
     string Nombres,
     string Apellidos,
-    int EspecialidadId,
-    string NombreEspecialidad,
     string Cmp,
+    IReadOnlyList<int> EspecialidadIds,
+    bool Activo,
     DateTime FechaCreacion,
-    DateTime? FechaActualizacion
-)
+    DateTime? FechaActualizacion)
 {
-    /// <summary>
-    /// Propiedad calculada automáticamente a partir de Nombres y Apellidos.
-    /// Se incluye automáticamente en el JSON de respuesta.
-    /// </summary>
-    public string NombreCompleto => $"{Nombres} {Apellidos}".Trim();
+    // Une nombres y apellidos automáticamente.
+    public string NombreCompleto => $"{Nombres} {Apellidos}";
 }
 
-/// <summary>
-/// DTO de entrada para registrar o actualizar un Médico (POST / PUT) relacionándolo con EspecialidadId.
-/// </summary>
-public record CrearMedicoDto(
-    string Nombres,
-    string Apellidos,
-    int EspecialidadId,
-    string Cmp
-);
+// DTO de entrada: recibe los campos para crear o actualizar.
+// El ID y las fechas los administra el servidor.
+public sealed class CrearMedicoDto
+{
+    // Obligatorio: entre 2 y 80 caracteres.
+    [Required, StringLength(80, MinimumLength = 2)]
+    public string Nombres { get; init; } = "";
+
+    // Obligatorio: entre 2 y 80 caracteres.
+    [Required, StringLength(80, MinimumLength = 2)]
+    public string Apellidos { get; init; } = "";
+
+    // Obligatorio: exactamente 5 o 6 dígitos.
+    [Required, RegularExpression(@"^[0-9]{5,6}$")]
+    public string Cmp { get; init; } = "";
+
+    // Exige al menos una especialidad; el servicio verifica que exista.
+    [Required, MinLength(1)]
+    public int[] EspecialidadIds { get; init; } = [];
+
+    // Habilitado por defecto para nuevas reservas.
+    public bool Activo { get; init; } = true;
+}

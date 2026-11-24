@@ -1,82 +1,61 @@
-namespace GestionCitasAPI.Controllers;
-
+// Recibe solicitudes HTTP para consultar y administrar citas.
 using GestionCitasAPI.Models;
 using GestionCitasAPI.Services;
 using Microsoft.AspNetCore.Mvc;
 
-/// <summary>
-/// Controlador REST delgado (Thin Controller) para la gestión de Citas Médicas.
-/// Delega toda la lógica y persistencia a ICitaServicio.
-/// </summary>
+namespace GestionCitasAPI.Controllers;
+
+// Activa el comportamiento de API y la validación automática de los DTOs.
 [ApiController]
-[Route("api/[controller]")]
-public class CitasController(ICitaServicio servicio) : ControllerBase
+
+// Dirección base para acceder a las citas.
+[Route("api/citas")]
+
+// Documenta los posibles errores; no los genera ni los captura.
+[ProducesResponseType(typeof(ProblemDetails), 400)]
+[ProducesResponseType(typeof(ProblemDetails), 404)]
+[ProducesResponseType(typeof(ProblemDetails), 409)]
+[ProducesResponseType(typeof(ProblemDetails), 500)]
+public sealed class CitasController(ICitaServicio servicio) : ControllerBase
 {
-    /// <summary>
-    /// GET /api/citas -> Retorna 200 OK con la lista de todas las citas médicas.
-    /// </summary>
+    // GET: devuelve la lista de citas.
     [HttpGet]
-    public ActionResult<List<CitaItemDto>> ObtenerTodas()
-    {
-        return Ok(servicio.ListarTodas());
-    }
+    public ActionResult<List<CitaItemDto>> ObtenerTodos() => Ok(servicio.ListarTodas());
 
-    /// <summary>
-    /// GET /api/citas/{id} -> Retorna 200 OK si existe, o 404 NotFound si no se encuentra.
-    /// </summary>
+    // GET por ID: consulta una cita y devuelve 200 si existe.
     [HttpGet("{id:int}")]
-    public ActionResult<CitaItemDto> ObtenerPorId(int id)
-    {
-        var cita = servicio.BuscarPorId(id);
-        if (cita is null)
-            return NotFound(new { mensaje = $"La cita médica con ID {id} no existe." });
+    public ActionResult<CitaItemDto> ObtenerPorId(int id) => Ok(servicio.BuscarPorId(id));
 
-        return Ok(cita);
-    }
-
-    /// <summary>
-    /// POST /api/citas -> Retorna 201 Created con la cabecera Location hacia la cita recién agendada.
-    /// </summary>
+    // POST: registra una cita y devuelve 201 con sus datos y URL de consulta.
     [HttpPost]
-    public ActionResult<CitaItemDto> Crear([FromBody] CrearCitaDto dto)
+    [ProducesResponseType(typeof(CitaItemDto), 201)]
+    public ActionResult<CitaItemDto> Crear(CrearCitaDto dto)
     {
-        var nueva = servicio.Registrar(dto);
-        return CreatedAtAction(nameof(ObtenerPorId), new { id = nueva.Id }, nueva);
+        var nuevo = servicio.Registrar(dto);
+        return CreatedAtAction(nameof(ObtenerPorId), new { id = nuevo.Id }, nuevo);
     }
 
-    /// <summary>
-    /// PUT /api/citas/{id} -> Retorna 200 OK con la cita actualizada (incluyendo FechaActualizacion) o 404 NotFound.
-    /// </summary>
+    // PUT: cambia turno, hora y motivo; conserva al paciente.
     [HttpPut("{id:int}")]
-    public ActionResult<CitaItemDto> Actualizar(int id, [FromBody] CrearCitaDto dto)
-    {
-        var actualizada = servicio.Actualizar(id, dto);
-        if (actualizada is null)
-            return NotFound(new { mensaje = $"No se pudo actualizar: La cita con ID {id} no existe." });
+    public ActionResult<CitaItemDto> Actualizar(int id, ActualizarCitaDto dto) => Ok(servicio.Actualizar(id, dto));
 
-        return Ok(actualizada);
-    }
-
-    /// <summary>
-    /// DELETE /api/citas/{id} -> Retorna 204 NoContent si se eliminó, o 404 NotFound.
-    /// </summary>
+    // DELETE: borra la cita de la memoria y devuelve 204 sin contenido.
     [HttpDelete("{id:int}")]
-    public IActionResult Eliminar(int id)
-    {
-        bool eliminado = servicio.Eliminar(id);
-        if (!eliminado)
-            return NotFound(new { mensaje = $"No se pudo eliminar: La cita con ID {id} no existe." });
+    [ProducesResponseType(204)]
+    public IActionResult Eliminar(int id) { servicio.Eliminar(id); return NoContent(); }
 
-        return NoContent();
-    }
+    // PATCH: cancela la cita sin borrarla y libera el horario si el servicio lo permite.
+    [HttpPatch("{id:int}/cancelacion")]
+    public ActionResult<CitaItemDto> Cancelar(int id, CancelarCitaDto dto) => Ok(servicio.Cancelar(id, dto));
 
-    /// <summary>
-    /// GET /api/citas/simular-error-500
-    /// [DEMO]: Lanza una excepción inesperada para verificar que ManejadorExcepcionesMiddleware responda con RFC 7807 (HTTP 500).
-    /// </summary>
+    // GET de prueba: provoca un error 500 para comprobar el middleware.
     [HttpGet("simular-error-500")]
-    public IActionResult SimularFallaServidor()
+    public IActionResult SimularError([FromServices] IWebHostEnvironment entorno)
     {
-        throw new Exception("Fallo simulado: Desconexión repentina con el servidor de base de datos de la clínica.");
+        // Fuera del entorno de desarrollo, rechaza la prueba con un 404.
+        if (!entorno.IsDevelopment()) throw new ExcepcionNegocio(404, "Recurso no disponible.");
+
+        // El middleware captura este fallo y oculta su detalle en la respuesta.
+        throw new Exception("Fallo interno simulado para comprobar la protección del middleware.");
     }
 }

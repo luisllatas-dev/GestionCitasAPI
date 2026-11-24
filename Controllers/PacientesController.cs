@@ -1,72 +1,46 @@
-namespace GestionCitasAPI.Controllers;
-
+// Recibe solicitudes HTTP para consultar y administrar pacientes.
 using GestionCitasAPI.Models;
 using GestionCitasAPI.Services;
 using Microsoft.AspNetCore.Mvc;
 
-/// <summary>
-/// Controlador REST delgado (Thin Controller) para la gestión de Pacientes.
-/// Delega toda la lógica y persistencia a IPacienteServicio.
-/// </summary>
+namespace GestionCitasAPI.Controllers;
+
+// Activa el comportamiento de API y la validación automática de los DTOs.
 [ApiController]
-[Route("api/[controller]")]
-public class PacientesController(IPacienteServicio servicio) : ControllerBase
+
+// Dirección base para acceder a los pacientes.
+[Route("api/pacientes")]
+
+// Documenta los posibles errores; no los genera ni los captura.
+[ProducesResponseType(typeof(ProblemDetails), 400)]
+[ProducesResponseType(typeof(ProblemDetails), 404)]
+[ProducesResponseType(typeof(ProblemDetails), 409)]
+[ProducesResponseType(typeof(ProblemDetails), 500)]
+public sealed class PacientesController(IPacienteServicio servicio) : ControllerBase
 {
-    /// <summary>
-    /// GET /api/pacientes -> Retorna 200 OK con la lista de todos los pacientes.
-    /// </summary>
+    // GET: devuelve la lista de pacientes.
     [HttpGet]
-    public ActionResult<List<PacienteItemDto>> ObtenerTodos()
-    {
-        return Ok(servicio.ListarTodos());
-    }
+    public ActionResult<List<PacienteItemDto>> ObtenerTodos() => Ok(servicio.ListarTodos());
 
-    /// <summary>
-    /// GET /api/pacientes/{id} -> Retorna 200 OK si existe, o 404 NotFound si no se encuentra.
-    /// </summary>
+    // GET por ID: consulta un paciente y devuelve 200 si existe.
     [HttpGet("{id:int}")]
-    public ActionResult<PacienteItemDto> ObtenerPorId(int id)
-    {
-        var paciente = servicio.BuscarPorId(id);
-        if (paciente is null)
-            return NotFound(new { mensaje = $"El paciente con ID {id} no está registrado." });
+    public ActionResult<PacienteItemDto> ObtenerPorId(int id) => Ok(servicio.BuscarPorId(id));
 
-        return Ok(paciente);
-    }
-
-    /// <summary>
-    /// POST /api/pacientes -> Retorna 201 Created con la cabecera Location apuntando al nuevo recurso.
-    /// </summary>
+    // POST: registra un paciente y devuelve 201 con sus datos y URL de consulta.
     [HttpPost]
-    public ActionResult<PacienteItemDto> Crear([FromBody] CrearPacienteDto dto)
+    [ProducesResponseType(typeof(PacienteItemDto), 201)]
+    public ActionResult<PacienteItemDto> Crear(CrearPacienteDto dto)
     {
         var nuevo = servicio.Registrar(dto);
         return CreatedAtAction(nameof(ObtenerPorId), new { id = nuevo.Id }, nuevo);
     }
 
-    /// <summary>
-    /// PUT /api/pacientes/{id} -> Retorna 200 OK con el paciente actualizado (incluyendo FechaActualizacion) o 404 NotFound.
-    /// </summary>
+    // PUT: actualiza el paciente indicado y devuelve sus datos.
     [HttpPut("{id:int}")]
-    public ActionResult<PacienteItemDto> Actualizar(int id, [FromBody] CrearPacienteDto dto)
-    {
-        var actualizado = servicio.Actualizar(id, dto);
-        if (actualizado is null)
-            return NotFound(new { mensaje = $"No se pudo actualizar: El paciente con ID {id} no existe." });
+    public ActionResult<PacienteItemDto> Actualizar(int id, CrearPacienteDto dto) => Ok(servicio.Actualizar(id, dto));
 
-        return Ok(actualizado);
-    }
-
-    /// <summary>
-    /// DELETE /api/pacientes/{id} -> Retorna 204 NoContent si se eliminó, o 404 NotFound.
-    /// </summary>
+    // DELETE: elimina al paciente si el servicio lo permite; devuelve 204 sin contenido.
     [HttpDelete("{id:int}")]
-    public IActionResult Eliminar(int id)
-    {
-        bool eliminado = servicio.Eliminar(id);
-        if (!eliminado)
-            return NotFound(new { mensaje = $"No se pudo eliminar: El paciente con ID {id} no existe." });
-
-        return NoContent();
-    }
+    [ProducesResponseType(204)]
+    public IActionResult Eliminar(int id) { servicio.Eliminar(id); return NoContent(); }
 }

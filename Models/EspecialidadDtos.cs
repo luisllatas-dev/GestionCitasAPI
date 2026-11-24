@@ -1,23 +1,24 @@
+// EspecialidadDtos.cs: define los datos que recibe y devuelve la API.
+using System.ComponentModel.DataAnnotations;
+
 namespace GestionCitasAPI.Models;
 
-/// <summary>
-/// DTO de salida que representa una Especialidad Médica, incluyendo estado Activo y campos de auditoría.
-/// </summary>
-public record EspecialidadItemDto(
+// DTO de salida: devuelve la especialidad, su ID y fechas de registro.
+public sealed record EspecialidadItemDto(
     int Id,
     string Nombre,
-    string Descripcion,
     bool Activo,
     DateTime FechaCreacion,
-    DateTime? FechaActualizacion
-);
+    DateTime? FechaActualizacion);
 
-/// <summary>
-/// DTO de entrada para registrar o actualizar una Especialidad Médica (POST / PUT).
-/// Por defecto Activo es true si no se especifica.
-/// </summary>
-public record CrearEspecialidadDto(
-    string Nombre,
-    string Descripcion,
-    bool Activo = true
-);
+// DTO de entrada: recibe los campos para crear o actualizar.
+// El servicio verifica que el nombre no esté duplicado.
+public sealed class CrearEspecialidadDto
+{
+    // Nombre obligatorio: entre 2 y 80 caracteres.
+    [Required, StringLength(80, MinimumLength = 2)]
+    public string Nombre { get; init; } = "";
+
+    // Especialidad habilitada por defecto para nuevas reservas.
+    public bool Activo { get; init; } = true;
+}

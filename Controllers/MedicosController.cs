@@ -1,72 +1,57 @@
-namespace GestionCitasAPI.Controllers;
-
+// Recibe solicitudes HTTP para consultar y administrar médicos.
 using GestionCitasAPI.Models;
 using GestionCitasAPI.Services;
 using Microsoft.AspNetCore.Mvc;
 
-/// <summary>
-/// Controlador REST delgado (Thin Controller) para la gestión de Médicos.
-/// Delega toda la lógica y persistencia a IMedicoServicio.
-/// </summary>
+namespace GestionCitasAPI.Controllers;
+
+// Activa el comportamiento de API y la validación automática de los DTOs.
 [ApiController]
-[Route("api/[controller]")]
-public class MedicosController(IMedicoServicio servicio) : ControllerBase
+
+// Dirección base para acceder a los médicos.
+[Route("api/medicos")]
+
+// Documenta los posibles errores; no los genera ni los captura.
+[ProducesResponseType(typeof(ProblemDetails), 400)]
+[ProducesResponseType(typeof(ProblemDetails), 404)]
+[ProducesResponseType(typeof(ProblemDetails), 409)]
+[ProducesResponseType(typeof(ProblemDetails), 500)]
+public sealed class MedicosController(IMedicoServicio servicio) : ControllerBase
 {
-    /// <summary>
-    /// GET /api/medicos -> Retorna 200 OK con la lista de todos los médicos.
-    /// </summary>
+    // GET: devuelve la lista de médicos.
     [HttpGet]
-    public ActionResult<List<MedicoItemDto>> ObtenerTodos()
-    {
-        return Ok(servicio.ListarTodos());
-    }
+    public ActionResult<List<MedicoItemDto>> ObtenerTodos() => Ok(servicio.ListarTodos());
 
-    /// <summary>
-    /// GET /api/medicos/{id} -> Retorna 200 OK si existe, o 404 NotFound si no se encuentra.
-    /// </summary>
+    // GET por ID: consulta un médico y devuelve 200 si existe.
     [HttpGet("{id:int}")]
-    public ActionResult<MedicoItemDto> ObtenerPorId(int id)
-    {
-        var medico = servicio.BuscarPorId(id);
-        if (medico is null)
-            return NotFound(new { mensaje = $"El médico con ID {id} no está registrado." });
+    public ActionResult<MedicoItemDto> ObtenerPorId(int id) => Ok(servicio.BuscarPorId(id));
 
-        return Ok(medico);
-    }
-
-    /// <summary>
-    /// POST /api/medicos -> Retorna 201 Created con la cabecera Location apuntando al nuevo recurso.
-    /// </summary>
+    // POST: registra un médico y devuelve 201 con sus datos y URL de consulta.
     [HttpPost]
-    public ActionResult<MedicoItemDto> Crear([FromBody] CrearMedicoDto dto)
+    [ProducesResponseType(typeof(MedicoItemDto), 201)]
+    public ActionResult<MedicoItemDto> Crear(CrearMedicoDto dto)
     {
         var nuevo = servicio.Registrar(dto);
         return CreatedAtAction(nameof(ObtenerPorId), new { id = nuevo.Id }, nuevo);
     }
 
-    /// <summary>
-    /// PUT /api/medicos/{id} -> Retorna 200 OK con el médico actualizado (incluyendo FechaActualizacion) o 404 NotFound.
-    /// </summary>
+    // PUT: actualiza el médico indicado y devuelve sus datos.
     [HttpPut("{id:int}")]
-    public ActionResult<MedicoItemDto> Actualizar(int id, [FromBody] CrearMedicoDto dto)
-    {
-        var actualizado = servicio.Actualizar(id, dto);
-        if (actualizado is null)
-            return NotFound(new { mensaje = $"No se pudo actualizar: El médico con ID {id} no existe." });
+    public ActionResult<MedicoItemDto> Actualizar(int id, CrearMedicoDto dto) => Ok(servicio.Actualizar(id, dto));
 
-        return Ok(actualizado);
-    }
-
-    /// <summary>
-    /// DELETE /api/medicos/{id} -> Retorna 204 NoContent si se eliminó, o 404 NotFound.
-    /// </summary>
+    // DELETE: elimina al médico si el servicio lo permite; devuelve 204 sin contenido.
     [HttpDelete("{id:int}")]
-    public IActionResult Eliminar(int id)
-    {
-        bool eliminado = servicio.Eliminar(id);
-        if (!eliminado)
-            return NotFound(new { mensaje = $"No se pudo eliminar: El médico con ID {id} no existe." });
+    [ProducesResponseType(204)]
+    public IActionResult Eliminar(int id) { servicio.Eliminar(id); return NoContent(); }
 
-        return NoContent();
+    // GET: consulta los médicos que tienen asignada la especialidad indicada.
+    [HttpGet("por-especialidad/{especialidadId:int}")]
+    public ActionResult<List<MedicoItemDto>> PorEspecialidad(int especialidadId, [FromServices] IEspecialidadServicio especialidades)
+    {
+        // Verifica que la especialidad exista antes de filtrar.
+        especialidades.BuscarPorId(especialidadId);
+
+        // Selecciona los médicos cuya lista de especialidades contiene ese ID.
+        return Ok(servicio.ListarTodos().Where(m => m.EspecialidadIds.Contains(especialidadId)).ToList());
     }
 }

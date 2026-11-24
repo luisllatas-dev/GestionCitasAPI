@@ -1,72 +1,46 @@
-namespace GestionCitasAPI.Controllers;
-
+// Recibe solicitudes HTTP para consultar y administrar especialidades.
 using GestionCitasAPI.Models;
 using GestionCitasAPI.Services;
 using Microsoft.AspNetCore.Mvc;
 
-/// <summary>
-/// Controlador REST delgado (Thin Controller) para la gestión de Especialidades Médicas.
-/// Delega toda la lógica y persistencia a IEspecialidadServicio.
-/// </summary>
+namespace GestionCitasAPI.Controllers;
+
+// Activa el comportamiento de API y la validación automática de los DTOs.
 [ApiController]
-[Route("api/[controller]")]
-public class EspecialidadesController(IEspecialidadServicio servicio) : ControllerBase
+
+// Dirección base para acceder a las especialidades.
+[Route("api/especialidades")]
+
+// Documenta los posibles errores; no los genera ni los captura.
+[ProducesResponseType(typeof(ProblemDetails), 400)]
+[ProducesResponseType(typeof(ProblemDetails), 404)]
+[ProducesResponseType(typeof(ProblemDetails), 409)]
+[ProducesResponseType(typeof(ProblemDetails), 500)]
+public sealed class EspecialidadesController(IEspecialidadServicio servicio) : ControllerBase
 {
-    /// <summary>
-    /// GET /api/especialidades -> Retorna 200 OK con la lista de todas las especialidades.
-    /// </summary>
+    // GET: devuelve la lista de especialidades.
     [HttpGet]
-    public ActionResult<List<EspecialidadItemDto>> ObtenerTodas()
-    {
-        return Ok(servicio.ListarTodas());
-    }
+    public ActionResult<List<EspecialidadItemDto>> ObtenerTodos() => Ok(servicio.ListarTodos());
 
-    /// <summary>
-    /// GET /api/especialidades/{id} -> Retorna 200 OK si existe, o 404 NotFound si no se encuentra.
-    /// </summary>
+    // GET por ID: consulta una especialidad y devuelve 200 si existe.
     [HttpGet("{id:int}")]
-    public ActionResult<EspecialidadItemDto> ObtenerPorId(int id)
-    {
-        var especialidad = servicio.BuscarPorId(id);
-        if (especialidad is null)
-            return NotFound(new { mensaje = $"La especialidad con ID {id} no está registrada." });
+    public ActionResult<EspecialidadItemDto> ObtenerPorId(int id) => Ok(servicio.BuscarPorId(id));
 
-        return Ok(especialidad);
-    }
-
-    /// <summary>
-    /// POST /api/especialidades -> Retorna 201 Created con la cabecera Location apuntando al nuevo recurso.
-    /// </summary>
+    // POST: registra una especialidad y devuelve 201 con sus datos y URL de consulta.
     [HttpPost]
-    public ActionResult<EspecialidadItemDto> Crear([FromBody] CrearEspecialidadDto dto)
+    [ProducesResponseType(typeof(EspecialidadItemDto), 201)]
+    public ActionResult<EspecialidadItemDto> Crear(CrearEspecialidadDto dto)
     {
-        var nueva = servicio.Registrar(dto);
-        return CreatedAtAction(nameof(ObtenerPorId), new { id = nueva.Id }, nueva);
+        var nuevo = servicio.Registrar(dto);
+        return CreatedAtAction(nameof(ObtenerPorId), new { id = nuevo.Id }, nuevo);
     }
 
-    /// <summary>
-    /// PUT /api/especialidades/{id} -> Retorna 200 OK con la especialidad actualizada (incluyendo FechaActualizacion) o 404 NotFound.
-    /// </summary>
+    // PUT: actualiza la especialidad indicada y devuelve sus datos.
     [HttpPut("{id:int}")]
-    public ActionResult<EspecialidadItemDto> Actualizar(int id, [FromBody] CrearEspecialidadDto dto)
-    {
-        var actualizada = servicio.Actualizar(id, dto);
-        if (actualizada is null)
-            return NotFound(new { mensaje = $"No se pudo actualizar: La especialidad con ID {id} no existe." });
+    public ActionResult<EspecialidadItemDto> Actualizar(int id, CrearEspecialidadDto dto) => Ok(servicio.Actualizar(id, dto));
 
-        return Ok(actualizada);
-    }
-
-    /// <summary>
-    /// DELETE /api/especialidades/{id} -> Retorna 204 NoContent si se eliminó, o 404 NotFound.
-    /// </summary>
+    // DELETE: elimina la especialidad si el servicio lo permite; devuelve 204 sin contenido.
     [HttpDelete("{id:int}")]
-    public IActionResult Eliminar(int id)
-    {
-        bool eliminada = servicio.Eliminar(id);
-        if (!eliminada)
-            return NotFound(new { mensaje = $"No se pudo eliminar: La especialidad con ID {id} no existe." });
-
-        return NoContent();
-    }
+    [ProducesResponseType(204)]
+    public IActionResult Eliminar(int id) { servicio.Eliminar(id); return NoContent(); }
 }

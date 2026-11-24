@@ -1,80 +1,61 @@
-namespace GestionCitasAPI.Services;
-
+// Administra medicos en memoria. Se creó/ajustó para RN01 (duplicados) y RN08 (referencias).
 using GestionCitasAPI.Models;
-
+namespace GestionCitasAPI.Services;
+/// <summary>Contrato que permite al controlador trabajar sin depender de la implementación de almacenamiento.</summary>
 public interface IMedicoServicio
 {
     List<MedicoItemDto> ListarTodos();
-    MedicoItemDto? BuscarPorId(int id);
+    MedicoItemDto BuscarPorId(int id);
     MedicoItemDto Registrar(CrearMedicoDto dto);
-    MedicoItemDto? Actualizar(int id, CrearMedicoDto dto);
-    bool Eliminar(int id);
+    MedicoItemDto Actualizar(int id, CrearMedicoDto dto);
+    void Eliminar(int id);
 }
-
-/// <summary>
-/// Servicio en memoria para el CRUD Básico de Médicos con Auditoría (RN-MED-04).
-/// Recibe IEspecialidadServicio por Inyección de Dependencias para obtener el nombre de la especialidad.
-/// </summary>
-public class MedicoServicioEnMemoria(IEspecialidadServicio especialidadServicio) : IMedicoServicio
+public sealed class MedicoServicioEnMemoria(AlmacenEnMemoria almacen) : IMedicoServicio
 {
-    private readonly List<MedicoItemDto> _medicos = new()
+    /// <summary>Devuelve una lista nueva para no entregar la colección interna.</summary>
+    public List<MedicoItemDto> ListarTodos() { lock (almacen.Compuerta) return almacen.Medicos.Values.ToList(); }
+    public MedicoItemDto BuscarPorId(int id) { lock (almacen.Compuerta) return ReglasComunes.Obtener(almacen.Medicos, id); }
+    /// <summary>Comprueba formatos y duplicados antes de reservar un ID.</summary>
+    private void Validar(CrearMedicoDto dto, int id = 0)
     {
-        new(101, "Roberto", "Sánchez Mendoza", 1, "Cardiología", "CMP-45890", DateTime.Now.AddDays(-10), null),
-        new(102, "Ana Lucía", "Vargas Quispe", 2, "Pediatría", "CMP-62310", DateTime.Now.AddDays(-7), null)
-    };
-
-    public List<MedicoItemDto> ListarTodos() => _medicos.ToList();
-
-    public MedicoItemDto? BuscarPorId(int id) => _medicos.FirstOrDefault(m => m.Id == id);
-
+        ReglasComunes.Validar(dto);
+        ReglasComunes.Exigir(dto.Nombres.Trim().Length >= 2 && dto.Apellidos.Trim().Length >= 2, "Complete nombres y apellidos.");
+        ReglasComunes.Exigir(!almacen.Medicos.Values.Any(m => m.Id != id && m.Cmp == dto.Cmp), "El CMP ya está registrado.", 409);
+        ReglasComunes.Exigir(dto.EspecialidadIds.Distinct().Count() == dto.EspecialidadIds.Length, "No repita especialidades.");
+        foreach (var eid in dto.EspecialidadIds) ReglasComunes.Obtener(almacen.Especialidades, eid);
+        // RN08: no quitar una asociación que ya tenga turnos, pues rompería su significado.
+        ReglasComunes.Exigir(!almacen.Programaciones.Values.Any(p => p.MedicoId == id && !dto.EspecialidadIds.Contains(p.EspecialidadId)), "Una especialidad del médico tiene turnos asociados.", 409);
+    }
     public MedicoItemDto Registrar(CrearMedicoDto dto)
     {
-        var especialidad = especialidadServicio.BuscarPorId(dto.EspecialidadId);
-        int nuevoId = _medicos.Any() ? _medicos.Max(m => m.Id) + 1 : 101;
-
-        // RN-MED-04 (Auditoría): FechaCreacion = DateTime.Now, FechaActualizacion = null
-        var nuevo = new MedicoItemDto(
-            Id: nuevoId,
-            Nombres: dto.Nombres,
-            Apellidos: dto.Apellidos,
-            EspecialidadId: dto.EspecialidadId,
-            NombreEspecialidad: especialidad?.Nombre ?? "Especialidad no especificada",
-            Cmp: dto.Cmp,
-            FechaCreacion: DateTime.Now,
-            FechaActualizacion: null
-        );
-
-        _medicos.Add(nuevo);
-        return nuevo;
-    }
-
-    public MedicoItemDto? Actualizar(int id, CrearMedicoDto dto)
-    {
-        int index = _medicos.FindIndex(m => m.Id == id);
-        if (index == -1) return null;
-
-        var existente = _medicos[index];
-        var especialidad = especialidadServicio.BuscarPorId(dto.EspecialidadId);
-
-        // RN-MED-04 (Auditoría): Conserva FechaCreacion y actualiza FechaActualizacion
-        var actualizado = existente with
+        lock (almacen.Compuerta)
         {
-            Nombres = dto.Nombres,
-            Apellidos = dto.Apellidos,
-            EspecialidadId = dto.EspecialidadId,
-            NombreEspecialidad = especialidad?.Nombre ?? existente.NombreEspecialidad,
-            Cmp = dto.Cmp,
-            FechaActualizacion = DateTime.Now
-        };
-
-        _medicos[index] = actualizado;
-        return actualizado;
+            Validar(dto);
+            var nuevo = new MedicoItemDto(++almacen.UltimoMedico, dto.Nombres.Trim(), dto.Apellidos.Trim(), dto.Cmp, dto.EspecialidadIds.ToArray(), dto.Activo, ReglasComunes.Ahora, null);
+            almacen.Medicos.Add(nuevo.Id, nuevo);
+            return nuevo;
+        }
     }
-
-    public bool Eliminar(int id)
+    /// <summary>PUT conserva ID y fecha de creación; actualiza los demás datos y la auditoría.</summary>
+    public MedicoItemDto Actualizar(int id, CrearMedicoDto dto)
     {
-        var item = BuscarPorId(id);
-        if (item is null) return false;
-        return _medicos.Remove(item);
+        lock (almacen.Compuerta)
+        {
+            var anterior = BuscarPorId(id);
+            Validar(dto, id);
+            var nuevo = new MedicoItemDto(id, dto.Nombres.Trim(), dto.Apellidos.Trim(), dto.Cmp, dto.EspecialidadIds.ToArray(), dto.Activo, anterior.FechaCreacion, ReglasComunes.Ahora);
+            almacen.Medicos[id] = nuevo;
+            return nuevo;
+        }
+    }
+    /// <summary>RN08: rechaza el borrado cuando existen referencias, para no dejar datos huérfanos.</summary>
+    public void Eliminar(int id)
+    {
+        lock (almacen.Compuerta)
+        {
+            BuscarPorId(id);
+            ReglasComunes.Exigir(!(almacen.Programaciones.Values.Any(p => p.MedicoId == id)), "El registro tiene datos asociados y no puede eliminarse.", 409);
+            almacen.Medicos.Remove(id);
+        }
     }
 }

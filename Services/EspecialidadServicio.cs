@@ -1,72 +1,58 @@
-namespace GestionCitasAPI.Services;
-
+// Administra especialidades en memoria. Se creó/ajustó para RN01 (duplicados) y RN08 (referencias).
 using GestionCitasAPI.Models;
-
+namespace GestionCitasAPI.Services;
+/// <summary>Contrato que permite al controlador trabajar sin depender de la implementación de almacenamiento.</summary>
 public interface IEspecialidadServicio
 {
-    List<EspecialidadItemDto> ListarTodas();
-    EspecialidadItemDto? BuscarPorId(int id);
+    List<EspecialidadItemDto> ListarTodos();
+    EspecialidadItemDto BuscarPorId(int id);
     EspecialidadItemDto Registrar(CrearEspecialidadDto dto);
-    EspecialidadItemDto? Actualizar(int id, CrearEspecialidadDto dto);
-    bool Eliminar(int id);
+    EspecialidadItemDto Actualizar(int id, CrearEspecialidadDto dto);
+    void Eliminar(int id);
 }
-
-/// <summary>
-/// Servicio en memoria para el CRUD Básico de Especialidades Médicas con estado Activo y Auditoría.
-/// </summary>
-public class EspecialidadServicioEnMemoria : IEspecialidadServicio
+public sealed class EspecialidadServicioEnMemoria(AlmacenEnMemoria almacen) : IEspecialidadServicio
 {
-    private readonly List<EspecialidadItemDto> _especialidades = new()
+    /// <summary>Devuelve una lista nueva para no entregar la colección interna.</summary>
+    public List<EspecialidadItemDto> ListarTodos() { lock (almacen.Compuerta) return almacen.Especialidades.Values.ToList(); }
+    public EspecialidadItemDto BuscarPorId(int id) { lock (almacen.Compuerta) return ReglasComunes.Obtener(almacen.Especialidades, id); }
+    /// <summary>Comprueba formatos y duplicados antes de reservar un ID.</summary>
+    private void Validar(CrearEspecialidadDto dto, int id = 0)
     {
-        new(1, "Cardiología", "Diagnóstico y tratamiento de enfermedades del corazón y sistema circulatorio.", true, DateTime.Now.AddDays(-15), null),
-        new(2, "Pediatría", "Atención médica integral de bebés, niños y adolescentes.", true, DateTime.Now.AddDays(-15), null),
-        new(3, "Dermatología", "Cuidado y tratamiento de enfermedades de la piel, cabello y uñas.", true, DateTime.Now.AddDays(-12), null)
-    };
-
-    public List<EspecialidadItemDto> ListarTodas() => _especialidades.ToList();
-
-    public EspecialidadItemDto? BuscarPorId(int id) => _especialidades.FirstOrDefault(e => e.Id == id);
-
+        ReglasComunes.Validar(dto);
+        var nombre = ReglasComunes.Texto(dto.Nombre);
+        ReglasComunes.Exigir(nombre.Length >= 2, "El nombre debe tener al menos 2 caracteres.");
+        ReglasComunes.Exigir(!almacen.Especialidades.Values.Any(e => e.Id != id && e.Nombre.Equals(nombre, StringComparison.OrdinalIgnoreCase)), "La especialidad ya existe.", 409);
+    }
     public EspecialidadItemDto Registrar(CrearEspecialidadDto dto)
     {
-        int nuevoId = _especialidades.Any() ? _especialidades.Max(e => e.Id) + 1 : 1;
-
-        var nueva = new EspecialidadItemDto(
-            Id: nuevoId,
-            Nombre: dto.Nombre,
-            Descripcion: dto.Descripcion,
-            Activo: dto.Activo,
-            FechaCreacion: DateTime.Now,
-            FechaActualizacion: null
-        );
-
-        _especialidades.Add(nueva);
-        return nueva;
-    }
-
-    public EspecialidadItemDto? Actualizar(int id, CrearEspecialidadDto dto)
-    {
-        int index = _especialidades.FindIndex(e => e.Id == id);
-        if (index == -1) return null;
-
-        var existente = _especialidades[index];
-
-        var actualizada = existente with
+        lock (almacen.Compuerta)
         {
-            Nombre = dto.Nombre,
-            Descripcion = dto.Descripcion,
-            Activo = dto.Activo,
-            FechaActualizacion = DateTime.Now
-        };
-
-        _especialidades[index] = actualizada;
-        return actualizada;
+            Validar(dto);
+            var nuevo = new EspecialidadItemDto(++almacen.UltimaEspecialidad, ReglasComunes.Texto(dto.Nombre), dto.Activo, ReglasComunes.Ahora, null);
+            almacen.Especialidades.Add(nuevo.Id, nuevo);
+            return nuevo;
+        }
     }
-
-    public bool Eliminar(int id)
+    /// <summary>PUT conserva ID y fecha de creación; actualiza los demás datos y la auditoría.</summary>
+    public EspecialidadItemDto Actualizar(int id, CrearEspecialidadDto dto)
     {
-        var item = BuscarPorId(id);
-        if (item is null) return false;
-        return _especialidades.Remove(item);
+        lock (almacen.Compuerta)
+        {
+            var anterior = BuscarPorId(id);
+            Validar(dto, id);
+            var nuevo = new EspecialidadItemDto(id, ReglasComunes.Texto(dto.Nombre), dto.Activo, anterior.FechaCreacion, ReglasComunes.Ahora);
+            almacen.Especialidades[id] = nuevo;
+            return nuevo;
+        }
+    }
+    /// <summary>RN08: rechaza el borrado cuando existen referencias, para no dejar datos huérfanos.</summary>
+    public void Eliminar(int id)
+    {
+        lock (almacen.Compuerta)
+        {
+            BuscarPorId(id);
+            ReglasComunes.Exigir(!(almacen.Medicos.Values.Any(m => m.EspecialidadIds.Contains(id)) || almacen.Programaciones.Values.Any(p => p.EspecialidadId == id)), "El registro tiene datos asociados y no puede eliminarse.", 409);
+            almacen.Especialidades.Remove(id);
+        }
     }
 }

@@ -1,79 +1,57 @@
-namespace GestionCitasAPI.Services;
-
+// Administra pacientes en memoria. Se creó/ajustó para RN01 (duplicados) y RN08 (referencias).
 using GestionCitasAPI.Models;
-
+namespace GestionCitasAPI.Services;
+/// <summary>Contrato que permite al controlador trabajar sin depender de la implementación de almacenamiento.</summary>
 public interface IPacienteServicio
 {
     List<PacienteItemDto> ListarTodos();
-    PacienteItemDto? BuscarPorId(int id);
+    PacienteItemDto BuscarPorId(int id);
     PacienteItemDto Registrar(CrearPacienteDto dto);
-    PacienteItemDto? Actualizar(int id, CrearPacienteDto dto);
-    bool Eliminar(int id);
+    PacienteItemDto Actualizar(int id, CrearPacienteDto dto);
+    void Eliminar(int id);
 }
-
-/// <summary>
-/// Servicio en memoria para el CRUD Básico de Pacientes con Auditoría (RN-PAC-06).
-/// </summary>
-public class PacienteServicioEnMemoria : IPacienteServicio
+public sealed class PacienteServicioEnMemoria(AlmacenEnMemoria almacen) : IPacienteServicio
 {
-    private readonly List<PacienteItemDto> _pacientes = new()
+    /// <summary>Devuelve una lista nueva para no entregar la colección interna.</summary>
+    public List<PacienteItemDto> ListarTodos() { lock (almacen.Compuerta) return almacen.Pacientes.Values.ToList(); }
+    public PacienteItemDto BuscarPorId(int id) { lock (almacen.Compuerta) return ReglasComunes.Obtener(almacen.Pacientes, id); }
+    /// <summary>Comprueba formatos y duplicados antes de reservar un ID.</summary>
+    private void Validar(CrearPacienteDto dto, int id = 0)
     {
-        new(1, "Juan Carlos", "Pérez Gómez", "71234567", "987654321", "juan.perez@correo.com", DateTime.Now.AddDays(-5), null),
-        new(2, "María Elena", "Torres Díaz", "45678912", "912345678", "maria.torres@correo.com", DateTime.Now.AddDays(-3), null)
-    };
-
-    public List<PacienteItemDto> ListarTodos() => _pacientes.ToList();
-
-    public PacienteItemDto? BuscarPorId(int id) => _pacientes.FirstOrDefault(p => p.Id == id);
-
+        ReglasComunes.Validar(dto);
+        ReglasComunes.Exigir(dto.Nombres.Trim().Length >= 2 && dto.Apellidos.Trim().Length >= 2, "Complete nombres y apellidos.");
+        ReglasComunes.Exigir(!almacen.Pacientes.Values.Any(p => p.Id != id && p.Dni == dto.Dni), "El DNI ya está registrado.", 409);
+    }
     public PacienteItemDto Registrar(CrearPacienteDto dto)
     {
-        int nuevoId = _pacientes.Any() ? _pacientes.Max(p => p.Id) + 1 : 1;
-
-        // RN-PAC-06 (Auditoría): FechaCreacion = DateTime.Now, FechaActualizacion = null
-        var nuevo = new PacienteItemDto(
-            Id: nuevoId,
-            Nombres: dto.Nombres,
-            Apellidos: dto.Apellidos,
-            Dni: dto.Dni,
-            Telefono: dto.Telefono,
-            Correo: dto.Correo,
-            FechaCreacion: DateTime.Now,
-            FechaActualizacion: null
-        );
-
-        _pacientes.Add(nuevo);
-        return nuevo;
-    }
-
-    public PacienteItemDto? Actualizar(int id, CrearPacienteDto dto)
-    {
-        int index = _pacientes.FindIndex(p => p.Id == id);
-        if (index == -1) return null;
-
-        var existente = _pacientes[index];
-
-        // RN-PAC-06 (Auditoría): Conserva FechaCreacion original y asigna FechaActualizacion = DateTime.Now
-        // Usamos la expresión 'with' propia de los record en C#
-        var actualizado = existente with
+        lock (almacen.Compuerta)
         {
-            Nombres = dto.Nombres,
-            Apellidos = dto.Apellidos,
-            Dni = dto.Dni,
-            Telefono = dto.Telefono,
-            Correo = dto.Correo,
-            FechaActualizacion = DateTime.Now
-        };
-
-        _pacientes[index] = actualizado;
-        return actualizado;
+            Validar(dto);
+            var nuevo = new PacienteItemDto(++almacen.UltimoPaciente, dto.Nombres.Trim(), dto.Apellidos.Trim(), dto.Dni, dto.Telefono, dto.Correo?.Trim(), dto.Activo, ReglasComunes.Ahora, null);
+            almacen.Pacientes.Add(nuevo.Id, nuevo);
+            return nuevo;
+        }
     }
-
-    public bool Eliminar(int id)
+    /// <summary>PUT conserva ID y fecha de creación; actualiza los demás datos y la auditoría.</summary>
+    public PacienteItemDto Actualizar(int id, CrearPacienteDto dto)
     {
-        var item = BuscarPorId(id);
-        if (item is null) return false;
-        return _pacientes.Remove(item);
+        lock (almacen.Compuerta)
+        {
+            var anterior = BuscarPorId(id);
+            Validar(dto, id);
+            var nuevo = new PacienteItemDto(id, dto.Nombres.Trim(), dto.Apellidos.Trim(), dto.Dni, dto.Telefono, dto.Correo?.Trim(), dto.Activo, anterior.FechaCreacion, ReglasComunes.Ahora);
+            almacen.Pacientes[id] = nuevo;
+            return nuevo;
+        }
+    }
+    /// <summary>RN08: rechaza el borrado cuando existen referencias, para no dejar datos huérfanos.</summary>
+    public void Eliminar(int id)
+    {
+        lock (almacen.Compuerta)
+        {
+            BuscarPorId(id);
+            ReglasComunes.Exigir(!(almacen.Citas.Values.Any(c => c.PacienteId == id)), "El registro tiene datos asociados y no puede eliminarse.", 409);
+            almacen.Pacientes.Remove(id);
+        }
     }
 }
-

@@ -1,59 +1,90 @@
-namespace GestionCitasAPI.Middlewares;
-
-using System.Text.Json;
+// ManejadorExcepcionesMiddleware.cs: captura excepciones y devuelve errores en JSON.
+using GestionCitasAPI.Models;
 using Microsoft.AspNetCore.Mvc;
 
-/// <summary>
-/// Middleware global de excepciones bajo el estándar internacional RFC 7807 (ProblemDetails).
-/// Captura cualquier error no controlado ocurrido en los servicios o controladores y devuelve un JSON uniforme
-/// sin exponer jamás el Stack Trace en producción.
-/// </summary>
-public class ManejadorExcepcionesMiddleware(RequestDelegate next, ILogger<ManejadorExcepcionesMiddleware> logger)
+namespace GestionCitasAPI.Middlewares;
+
+// next continúa la solicitud; logger registra lo ocurrido en el servidor.
+public sealed class ManejadorExcepcionesMiddleware(
+    RequestDelegate next,
+    ILogger<ManejadorExcepcionesMiddleware> logger)
 {
     public async Task InvokeAsync(HttpContext context)
     {
         try
         {
-            // Deja pasar la petición hacia el siguiente middleware o controlador
+            // Continúa el procesamiento de la solicitud.
             await next(context);
+        }
+        catch (OperationCanceledException)
+            when (context.RequestAborted.IsCancellationRequested)
+        {
+            // Si el cliente desconectó, no intenta enviarle una respuesta.
+            logger.LogDebug(
+                "Solicitud cancelada: {TraceId}", context.TraceIdentifier);
         }
         catch (Exception ex)
         {
-            // Si algo falla en cualquier capa inferior, lo registramos en consola y armamos la respuesta RFC 7807
-            logger.LogError(ex, "Excepción capturada en {Path}: {Message}", context.Request.Path, ex.Message);
-            await ManejarExcepcionAsync(context, ex);
+            // Si la respuesta ya se está enviando, no se puede reemplazar.
+            if (context.Response.HasStarted)
+            {
+                logger.LogError(ex,
+                    "La respuesta ya comenzó. TraceId: {TraceId}",
+                    context.TraceIdentifier);
+                throw;
+            }
+
+            // Determina el código HTTP según el tipo de excepción.
+            var estado = ex switch
+            {
+                ExcepcionNegocio negocio => negocio.Estado,
+                BadHttpRequestException peticion => peticion.StatusCode,
+                _ => StatusCodes.Status500InternalServerError
+            };
+
+            // Registra los fallos internos y los rechazos esperados.
+            if (estado >= 500)
+                logger.LogError(ex,
+                    "Fallo interno en {Ruta}. TraceId: {TraceId}",
+                    context.Request.Path, context.TraceIdentifier);
+            else
+                logger.LogInformation(
+                    "Solicitud rechazada con {Estado} en {Ruta}",
+                    estado, context.Request.Path);
+
+            // Limpia la respuesta pendiente y asigna el código HTTP.
+            context.Response.Clear();
+            context.Response.StatusCode = estado;
+
+            // Construye un error uniforme sin revelar detalles internos del 500.
+            var problema = new ProblemDetails
+            {
+                Type = "about:blank",
+                Status = estado,
+                Title = estado switch
+                {
+                    400 => "Datos inválidos",
+                    404 => "Recurso no encontrado",
+                    409 => "Conflicto de negocio",
+                    _ => "Error al procesar la solicitud"
+                },
+                Detail = estado >= 500
+                    ? "Ocurrió un error interno. Utilice el traceId para reportarlo."
+                    : ex is ExcepcionNegocio
+                        ? ex.Message
+                        : "La solicitud HTTP no es válida.",
+                Instance = context.Request.Path
+            };
+
+            // Identifica la solicitud para localizarla en los registros.
+            problema.Extensions["traceId"] = context.TraceIdentifier;
+
+            // Envía el error como JSON, visible al probar desde Scalar.
+            await context.Response.WriteAsJsonAsync(
+                problema,
+                options: null,
+                contentType: "application/problem+json",
+                cancellationToken: context.RequestAborted);
         }
-    }
-
-    private static Task ManejarExcepcionAsync(HttpContext context, Exception excepcion)
-    {
-        context.Response.ContentType = "application/problem+json";
-
-        var problema = new ProblemDetails
-        {
-            Type = "https://tools.ietf.org/html/rfc7807",
-            Instance = context.Request.Path
-        };
-
-        if (excepcion is InvalidOperationException)
-        {
-            // 400 Bad Request: Violación de una regla de negocio (ej. DNI duplicado, cruce de horario, fecha pasada)
-            context.Response.StatusCode = StatusCodes.Status400BadRequest;
-            problema.Status = StatusCodes.Status400BadRequest;
-            problema.Title = "Operación de Negocio Inválida";
-            problema.Detail = excepcion.Message;
-        }
-        else
-        {
-            // 500 Internal Server Error: Falla inesperada de infraestructura o código
-            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-            problema.Status = StatusCodes.Status500InternalServerError;
-            problema.Title = "Error Interno en el Servidor";
-            problema.Detail = "Ha ocurrido un error inesperado al procesar su solicitud en Gestión de Citas. Por favor, intente más tarde.";
-        }
-
-        var opciones = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-        return context.Response.WriteAsync(JsonSerializer.Serialize(problema, opciones));
     }
 }
-
