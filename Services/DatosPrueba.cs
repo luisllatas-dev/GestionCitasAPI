@@ -77,3 +77,4 @@ public static class DatosPrueba
         citas.Cancelar(1008, new() { Motivo = "El paciente solicitó cancelar por motivos laborales" });
     }
 }
+

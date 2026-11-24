@@ -49,3 +49,4 @@ public sealed record HorarioItemDto(
     TimeOnly HoraInicio,
     TimeOnly HoraFin,
     bool Disponible);
+

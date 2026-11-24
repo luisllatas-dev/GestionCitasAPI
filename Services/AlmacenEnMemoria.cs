@@ -14,3 +14,4 @@ public sealed class AlmacenEnMemoria
     // Conservamos los rangos del proyecto original. No usamos Max+1 para evitar reutilizar IDs borrados.
     internal int UltimoPaciente, UltimoMedico = 100, UltimaEspecialidad, UltimaProgramacion, UltimaCita = 1000;
 }
+

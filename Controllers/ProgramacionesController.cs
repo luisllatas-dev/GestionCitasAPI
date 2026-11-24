@@ -48,3 +48,4 @@ public sealed class ProgramacionesController(IProgramacionServicio servicio) : C
     [HttpGet("{id:int}/disponibilidad")]
     public ActionResult<List<HorarioItemDto>> Disponibilidad(int id) => Ok(servicio.Disponibilidad(id));
 }
+

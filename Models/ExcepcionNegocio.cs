@@ -8,3 +8,4 @@ public sealed class ExcepcionNegocio(int estado, string mensaje)
     // Código HTTP que devolverá la API, por ejemplo 400, 404 o 409.
     public int Estado { get; } = estado;
 }
+

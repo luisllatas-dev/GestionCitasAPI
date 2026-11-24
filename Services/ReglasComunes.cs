@@ -25,3 +25,4 @@ public static class ReglasComunes
         if (!condicion) throw new ExcepcionNegocio(estado, mensaje);
     }
 }
+
