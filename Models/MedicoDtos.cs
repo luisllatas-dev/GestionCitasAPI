@@ -1,13 +1,14 @@
 namespace GestionCitasAPI.Models;
 
 /// <summary>
-/// DTO de salida que representa a un Médico registrado, incluyendo campos de auditoría.
+/// DTO de salida que representa a un Médico registrado, vinculado a una Especialidad por su ID y con campos de auditoría.
 /// </summary>
 public record MedicoItemDto(
     int Id,
     string Nombres,
     string Apellidos,
-    string Especialidad,
+    int EspecialidadId,
+    string NombreEspecialidad,
     string Cmp,
     DateTime FechaCreacion,
     DateTime? FechaActualizacion
@@ -21,11 +22,11 @@ public record MedicoItemDto(
 }
 
 /// <summary>
-/// DTO de entrada para registrar o actualizar un Médico (POST / PUT).
+/// DTO de entrada para registrar o actualizar un Médico (POST / PUT) relacionándolo con EspecialidadId.
 /// </summary>
 public record CrearMedicoDto(
     string Nombres,
     string Apellidos,
-    string Especialidad,
+    int EspecialidadId,
     string Cmp
 );

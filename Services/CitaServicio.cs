@@ -13,7 +13,7 @@ public interface ICitaServicio
 
 /// <summary>
 /// Servicio en memoria para el CRUD Básico de Citas con Auditoría (RN-CIT-07).
-/// Recibe IPacienteServicio e IMedicoServicio por Inyección de Dependencias para obtener sus nombres.
+/// Recibe IPacienteServicio e IMedicoServicio por Inyección de Dependencias para obtener sus nombres y especialidad.
 /// </summary>
 public class CitaServicioEnMemoria(IPacienteServicio pacienteServicio, IMedicoServicio medicoServicio) : ICitaServicio
 {
@@ -52,7 +52,7 @@ public class CitaServicioEnMemoria(IPacienteServicio pacienteServicio, IMedicoSe
             NombrePaciente: paciente?.NombreCompleto ?? "Paciente no especificado",
             MedicoId: dto.MedicoId,
             NombreMedico: medico?.NombreCompleto ?? "Médico no especificado",
-            Especialidad: medico?.Especialidad ?? "Sin especialidad",
+            Especialidad: medico?.NombreEspecialidad ?? "Sin especialidad",
             FechaHora: dto.FechaHora,
             Motivo: dto.Motivo,
             Estado: "Programada",
@@ -80,7 +80,7 @@ public class CitaServicioEnMemoria(IPacienteServicio pacienteServicio, IMedicoSe
             NombrePaciente = paciente?.NombreCompleto ?? existente.NombrePaciente,
             MedicoId = dto.MedicoId,
             NombreMedico = medico?.NombreCompleto ?? existente.NombreMedico,
-            Especialidad = medico?.Especialidad ?? existente.Especialidad,
+            Especialidad = medico?.NombreEspecialidad ?? existente.Especialidad,
             FechaHora = dto.FechaHora,
             Motivo = dto.Motivo,
             FechaActualizacion = DateTime.Now
@@ -97,4 +97,3 @@ public class CitaServicioEnMemoria(IPacienteServicio pacienteServicio, IMedicoSe
         return _citas.Remove(item);
     }
 }
-

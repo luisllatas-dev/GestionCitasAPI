@@ -13,13 +13,14 @@ public interface IMedicoServicio
 
 /// <summary>
 /// Servicio en memoria para el CRUD Básico de Médicos con Auditoría (RN-MED-04).
+/// Recibe IEspecialidadServicio por Inyección de Dependencias para obtener el nombre de la especialidad.
 /// </summary>
-public class MedicoServicioEnMemoria : IMedicoServicio
+public class MedicoServicioEnMemoria(IEspecialidadServicio especialidadServicio) : IMedicoServicio
 {
     private readonly List<MedicoItemDto> _medicos = new()
     {
-        new(101, "Roberto", "Sánchez Mendoza", "Cardiología", "CMP-45890", DateTime.Now.AddDays(-10), null),
-        new(102, "Ana Lucía", "Vargas Quispe", "Pediatría", "CMP-62310", DateTime.Now.AddDays(-7), null)
+        new(101, "Roberto", "Sánchez Mendoza", 1, "Cardiología", "CMP-45890", DateTime.Now.AddDays(-10), null),
+        new(102, "Ana Lucía", "Vargas Quispe", 2, "Pediatría", "CMP-62310", DateTime.Now.AddDays(-7), null)
     };
 
     public List<MedicoItemDto> ListarTodos() => _medicos.ToList();
@@ -28,6 +29,7 @@ public class MedicoServicioEnMemoria : IMedicoServicio
 
     public MedicoItemDto Registrar(CrearMedicoDto dto)
     {
+        var especialidad = especialidadServicio.BuscarPorId(dto.EspecialidadId);
         int nuevoId = _medicos.Any() ? _medicos.Max(m => m.Id) + 1 : 101;
 
         // RN-MED-04 (Auditoría): FechaCreacion = DateTime.Now, FechaActualizacion = null
@@ -35,7 +37,8 @@ public class MedicoServicioEnMemoria : IMedicoServicio
             Id: nuevoId,
             Nombres: dto.Nombres,
             Apellidos: dto.Apellidos,
-            Especialidad: dto.Especialidad,
+            EspecialidadId: dto.EspecialidadId,
+            NombreEspecialidad: especialidad?.Nombre ?? "Especialidad no especificada",
             Cmp: dto.Cmp,
             FechaCreacion: DateTime.Now,
             FechaActualizacion: null
@@ -51,13 +54,15 @@ public class MedicoServicioEnMemoria : IMedicoServicio
         if (index == -1) return null;
 
         var existente = _medicos[index];
+        var especialidad = especialidadServicio.BuscarPorId(dto.EspecialidadId);
 
         // RN-MED-04 (Auditoría): Conserva FechaCreacion y actualiza FechaActualizacion
         var actualizado = existente with
         {
             Nombres = dto.Nombres,
             Apellidos = dto.Apellidos,
-            Especialidad = dto.Especialidad,
+            EspecialidadId = dto.EspecialidadId,
+            NombreEspecialidad = especialidad?.Nombre ?? existente.NombreEspecialidad,
             Cmp = dto.Cmp,
             FechaActualizacion = DateTime.Now
         };
@@ -73,4 +78,3 @@ public class MedicoServicioEnMemoria : IMedicoServicio
         return _medicos.Remove(item);
     }
 }
-

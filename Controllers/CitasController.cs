@@ -80,4 +80,3 @@ public class CitasController(ICitaServicio servicio) : ControllerBase
         throw new Exception("Fallo simulado: Desconexión repentina con el servidor de base de datos de la clínica.");
     }
 }
-

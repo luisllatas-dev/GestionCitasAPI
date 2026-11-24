@@ -6,6 +6,16 @@ Este documento define las reglas de negocio y validaciones que se implementarán
 
 ---
 
+## 🏥 0. Módulo de Especialidades (`EspecialidadServicio`)
+
+- **RN-ESP-01 (Datos obligatorios):** El `Nombre` de la especialidad es obligatorio y no puede estar vacío.
+- **RN-ESP-02 (Unicidad de Nombre):** No pueden existir dos especialidades con el mismo `Nombre` (ignorando mayúsculas/minúsculas).
+- **RN-ESP-03 (Estado Activo):** Toda nueva especialidad se crea con `Activo = true` por defecto. Si una especialidad está inactiva (`Activo = false`), no se le pueden asignar nuevos médicos.
+- **RN-ESP-04 (Integridad al eliminar):** No se puede eliminar una especialidad si tiene médicos asociados a ella.
+- **RN-ESP-05 (Auditoría):** Registro automático de `FechaCreacion` al crear y `FechaActualizacion` al modificar datos o cambiar el estado `Activo`.
+
+---
+
 ## 👤 1. Módulo de Pacientes (`PacienteServicio`)
 
 - **RN-PAC-01 (Datos obligatorios):** Los `Nombres`, `Apellidos` y el `Dni` del paciente no pueden estar vacíos (`NombreCompleto` se calcula automáticamente como `$"{Nombres} {Apellidos}"`).
@@ -19,10 +29,11 @@ Este documento define las reglas de negocio y validaciones que se implementarán
 
 ## 🩺 2. Módulo de Médicos (`MedicoServicio`)
 
-- **RN-MED-01 (Datos obligatorios):** Los `Nombres`, `Apellidos`, la `Especialidad` y el número de colegiatura (`Cmp`) son obligatorios (`NombreCompleto` se calcula automáticamente como `$"{Nombres} {Apellidos}"`).
-- **RN-MED-02 (Unicidad de Colegiatura):** No pueden existir dos médicos con el mismo número de colegiatura (`Cmp`).
-- **RN-MED-03 (Integridad al eliminar):** No se puede eliminar un médico si tiene citas en estado `"Programada"`.
-- **RN-MED-04 (Auditoría):** Registro automático de `FechaCreacion` al dar de alta y `FechaActualizacion` al modificar sus datos.
+- **RN-MED-01 (Datos obligatorios):** Los `Nombres`, `Apellidos`, el `EspecialidadId` y el número de colegiatura (`Cmp`) son obligatorios (`NombreCompleto` se calcula automáticamente como `$"{Nombres} {Apellidos}"`).
+- **RN-MED-02 (Existencia y Estado de Especialidad):** El `EspecialidadId` debe corresponder a una especialidad existente y cuyo estado sea `Activo == true`.
+- **RN-MED-03 (Unicidad de Colegiatura):** No pueden existir dos médicos con el mismo número de colegiatura (`Cmp`).
+- **RN-MED-04 (Integridad al eliminar):** No se puede eliminar un médico si tiene citas en estado `"Programada"`.
+- **RN-MED-05 (Auditoría):** Registro automático de `FechaCreacion` al dar de alta y `FechaActualizacion` al modificar sus datos.
 
 ---
 
@@ -38,4 +49,3 @@ Este documento define las reglas de negocio y validaciones que se implementarán
   - Los estados válidos son: `"Programada"`, `"Atendida"`, `"Cancelada"`.
   - No se puede cancelar ni reprogramar una cita cuyo estado ya sea `"Atendida"` o `"Cancelada"`.
 - **RN-CIT-07 (Auditoría):** Registro automático de `FechaCreacion` al agendar la cita, y actualización automática de `FechaActualizacion` cuando se reprograma o cambia de estado (`"Atendida"` / `"Cancelada"`).
-

@@ -70,4 +70,3 @@ public class PacientesController(IPacienteServicio servicio) : ControllerBase
         return NoContent();
     }
 }
-

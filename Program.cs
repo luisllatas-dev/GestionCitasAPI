@@ -9,6 +9,7 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 // Registramos los servicios como Singleton para que las listas en memoria persistan mientras la API esté ejecutándose
+builder.Services.AddSingleton<IEspecialidadServicio, EspecialidadServicioEnMemoria>();
 builder.Services.AddSingleton<IPacienteServicio, PacienteServicioEnMemoria>();
 builder.Services.AddSingleton<IMedicoServicio, MedicoServicioEnMemoria>();
 builder.Services.AddSingleton<ICitaServicio, CitaServicioEnMemoria>();
