@@ -16,7 +16,8 @@ public sealed record EspecialidadItemDto(
 public sealed class CrearEspecialidadDto
 {
     // Nombre obligatorio: entre 2 y 80 caracteres.
-    [Required, StringLength(80, MinimumLength = 2)]
+    [Required(ErrorMessage = "El nombre de la especialidad es obligatorio.")]
+    [StringLength(80, MinimumLength = 2, ErrorMessage = "El nombre de la especialidad debe tener entre 2 y 80 caracteres.")]
     public string Nombre { get; init; } = "";
 
     // Especialidad habilitada por defecto para nuevas reservas.

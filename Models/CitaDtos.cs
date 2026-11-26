@@ -25,19 +25,20 @@ public sealed record CitaItemDto(
 public sealed class CrearCitaDto
 {
     // ID mayor que cero; el servicio verifica al paciente.
-    [Range(1, int.MaxValue)]
+    [Range(1, int.MaxValue, ErrorMessage = "Debe seleccionar un paciente válido (ID mayor que 0).")]
     public int PacienteId { get; init; } = 0;
 
     // Turno elegido: determina el médico, especialidad y fecha.
-    [Range(1, int.MaxValue)]
+    [Range(1, int.MaxValue, ErrorMessage = "Debe seleccionar un turno de programación válido (ID mayor que 0).")]
     public int ProgramacionId { get; init; } = 0;
 
     // Hora obligatoria; debe corresponder a un bloque disponible.
-    [Required]
+    [Required(ErrorMessage = "La hora de inicio de la cita es obligatoria.")]
     public TimeOnly? HoraInicio { get; init; } = null;
 
     // Motivo obligatorio: entre 3 y 250 caracteres.
-    [Required, StringLength(250, MinimumLength = 3)]
+    [Required(ErrorMessage = "El motivo de la cita es obligatorio.")]
+    [StringLength(250, MinimumLength = 3, ErrorMessage = "El motivo de la cita debe tener entre 3 y 250 caracteres.")]
     public string Motivo { get; init; } = "";
 }
 
@@ -46,15 +47,16 @@ public sealed class CrearCitaDto
 public sealed class ActualizarCitaDto
 {
     // Turno al que se desea trasladar la cita.
-    [Range(1, int.MaxValue)]
+    [Range(1, int.MaxValue, ErrorMessage = "Debe seleccionar un turno de programación válido (ID mayor que 0).")]
     public int ProgramacionId { get; init; }
 
     // Nueva hora solicitada; el servicio verifica disponibilidad.
-    [Required]
+    [Required(ErrorMessage = "La nueva hora de inicio de la cita es obligatoria.")]
     public TimeOnly? HoraInicio { get; init; }
 
     // Motivo actualizado, obligatorio.
-    [Required, StringLength(250, MinimumLength = 3)]
+    [Required(ErrorMessage = "El motivo de la cita es obligatorio.")]
+    [StringLength(250, MinimumLength = 3, ErrorMessage = "El motivo de la cita debe tener entre 3 y 250 caracteres.")]
     public string Motivo { get; init; } = "";
 }
 
@@ -63,6 +65,7 @@ public sealed class ActualizarCitaDto
 public sealed class CancelarCitaDto
 {
     // Explicación obligatoria: entre 3 y 250 caracteres.
-    [Required, StringLength(250, MinimumLength = 3)]
+    [Required(ErrorMessage = "El motivo de cancelación es obligatorio.")]
+    [StringLength(250, MinimumLength = 3, ErrorMessage = "El motivo de cancelación debe tener entre 3 y 250 caracteres.")]
     public string Motivo { get; init; } = "";
 }

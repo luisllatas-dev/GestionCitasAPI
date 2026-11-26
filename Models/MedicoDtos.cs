@@ -24,19 +24,23 @@ public sealed record MedicoItemDto(
 public sealed class CrearMedicoDto
 {
     // Obligatorio: entre 2 y 80 caracteres.
-    [Required, StringLength(80, MinimumLength = 2)]
+    [Required(ErrorMessage = "Los nombres del médico son obligatorios.")]
+    [StringLength(80, MinimumLength = 2, ErrorMessage = "Los nombres del médico deben tener entre 2 y 80 caracteres.")]
     public string Nombres { get; init; } = "";
 
     // Obligatorio: entre 2 y 80 caracteres.
-    [Required, StringLength(80, MinimumLength = 2)]
+    [Required(ErrorMessage = "Los apellidos del médico son obligatorios.")]
+    [StringLength(80, MinimumLength = 2, ErrorMessage = "Los apellidos del médico deben tener entre 2 y 80 caracteres.")]
     public string Apellidos { get; init; } = "";
 
     // Obligatorio: exactamente 5 o 6 dígitos.
-    [Required, RegularExpression(@"^[0-9]{5,6}$")]
+    [Required(ErrorMessage = "El código CMP es obligatorio.")]
+    [RegularExpression(@"^[0-9]{5,6}$", ErrorMessage = "El código CMP debe tener entre 5 y 6 dígitos numéricos.")]
     public string Cmp { get; init; } = "";
 
     // Exige al menos una especialidad; el servicio verifica que exista.
-    [Required, MinLength(1)]
+    [Required(ErrorMessage = "Debe indicar al menos una especialidad.")]
+    [MinLength(1, ErrorMessage = "El médico debe tener al menos una especialidad asignada.")]
     public int[] EspecialidadIds { get; init; } = [];
 
     // Habilitado por defecto para nuevas reservas.

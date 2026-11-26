@@ -20,23 +20,23 @@ public sealed record ProgramacionItemDto(
 public sealed class CrearProgramacionDto
 {
     // ID mayor que cero; el servicio verifica que el médico exista.
-    [Range(1, int.MaxValue)]
+    [Range(1, int.MaxValue, ErrorMessage = "Debe seleccionar un médico válido (ID mayor que 0).")]
     public int MedicoId { get; init; } = 0;
 
     // ID mayor que cero; el servicio verifica su relación con el médico.
-    [Range(1, int.MaxValue)]
+    [Range(1, int.MaxValue, ErrorMessage = "Debe seleccionar una especialidad válida (ID mayor que 0).")]
     public int EspecialidadId { get; init; } = 0;
 
     // Fecha obligatoria del turno, sin hora.
-    [Required]
+    [Required(ErrorMessage = "La fecha del turno es obligatoria.")]
     public DateOnly? Fecha { get; init; } = null;
 
     // Hora obligatoria de inicio de atención.
-    [Required]
+    [Required(ErrorMessage = "La hora de inicio del turno es obligatoria.")]
     public TimeOnly? HoraInicio { get; init; } = null;
 
     // Hora obligatoria de fin; el servicio verifica que sea posterior al inicio.
-    [Required]
+    [Required(ErrorMessage = "La hora de fin del turno es obligatoria.")]
     public TimeOnly? HoraFin { get; init; } = null;
 
     // Turno habilitado por defecto para nuevas reservas.
