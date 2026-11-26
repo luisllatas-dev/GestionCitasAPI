@@ -1,0 +1,1571 @@
+{
+  "info": {
+    "name": "GestionCitasAPI - Pruebas guiadas y reglas de negocio",
+    "description": "# Guía de pruebas de GestionCitasAPI\n\n## 1. Preparar el proyecto\nAbre GestionCitasAPI en Visual Studio. Detén cualquier ejecución anterior e inicia con Ctrl+F5 (sin depurar), usando el perfil http. Conserva la consola abierta. La URL configurada en el proyecto adjunto es http://localhost:5026. Si tu consola indica otro puerto, cambia baseUrl en las variables de esta colección.\n\nLos datos viven en memoria. Reiniciar la API restablece los datos iniciales y borra lo creado. Empieza con la API recién iniciada y no la reinicies durante la secuencia. No hace falta Docker ni base de datos ni login para estas pruebas.\n\n## 2. Importar\nEn Postman de escritorio pulsa Import, selecciona GestionCitasAPI.postman_collection.json y confirma la importación. Aparece la colección GestionCitasAPI - Pruebas guiadas. No importes el ZIP como colección: extráelo primero si descargaste el paquete.\n\n## 3. Revisar variables\nSelecciona la colección y abre Variables. baseUrl = http://localhost:5026, sin barra final. Guarda si lo cambias. No necesitas crear un Environment. Evita variables de otro Environment con los mismos nombres. Los IDs y fechaPrueba los completa la colección automáticamente; no necesitas escribirlos.\n\n## 4. Probar manualmente\nEmpieza por 01 y continúa en orden. En cada solicitud abre su descripción para entender el objetivo. El método y URL ya están configurados. En POST, PUT y PATCH abre Body > raw > JSON para ver los datos enviados; para esta primera ejecución mantenlos tal como están. Pulsa Send una sola vez y espera la respuesta. Revisa el código HTTP, Body y Test Results. Si las pruebas están en verde, continúa.\n\nEl paso 01 calcula una fecha siete días después del día actual en Lima. Los POST correctos guardan los IDs para las siguientes solicitudes. Un valor {{pacienteId}} es una variable, no un texto que debas sustituir manualmente. No repitas 01 a mitad de la secuencia porque borra las variables de IDs.\n\n## 5. Entender los resultados\n200: consulta o actualización correcta. 201: registro creado. 204: borrado correcto, sin cuerpo de respuesta. 400: datos inválidos. 404: no existe el recurso. 409: conflicto con una regla del negocio. 500: fallo interno simulado en el último paso. Los errores intencionales son pruebas exitosas cuando coinciden con el código indicado en el nombre.\n\n## 6. Ejecutar toda la colección\nDespués de entender los pasos, puedes reiniciar la API y ejecutar la colección desde Run/Collection Runner, con todas las solicitudes seleccionadas, en orden y una sola iteración. No ejecutes varias pruebas dependientes en paralelo. La limpieza final elimina únicamente los registros creados por esta secuencia. Para empezar de cero después de una interrupción, reinicia la API y vuelve al paso 01.\n\n## 7. Reglas cubiertas\nRN01: DNI, CMP y nombre de especialidad únicos.\nRN02: el médico debe tener asignada la especialidad del turno.\nRN03: turnos futuros válidos y sin superposición del médico.\nRN04: los registros utilizados en una reserva deben existir y estar activos.\nRN05: cita futura en un bloque completo de veinte minutos del turno.\nRN06: impedir cruces de citas del médico o paciente.\nRN07: reprogramación y cancelación controladas según el estado de la cita.\nRN08: impedir eliminaciones que dejen relaciones sin su registro original.\nEsta colección incluye ejemplos representativos de las ocho reglas; no pretende probar todas las combinaciones posibles.\n\n## 8. Si algo falla\nCould not send request / ECONNREFUSED: comprueba que la API esté ejecutándose y que baseUrl coincida con su puerto. Variables vacías: ejecuta primero el POST que crea ese registro y comprueba su respuesta 201. 409 inesperado al crear: quizá ya ejecutaste esa solicitud; reinicia la API y empieza desde 01. 404 inesperado con un ID capturado: no reinicies la API a mitad de las pruebas. Si Visual Studio se detiene en una excepción, usa Ctrl+F5 para ejecutar sin el depurador; el middleware debe convertirla en respuesta HTTP. No elimines las validaciones. El último paso requiere Development.\n\n## 9. Alcance\nPreparada a partir del ZIP GestionCitasAPI-main(1).zip. Se verificaron rutas y DTO del código fuente y la estructura del archivo. Las pruebas HTTP se ejecutarán contra tu API al pulsar Send; no se ha conectado con tu equipo ni se afirma que ya hayan pasado allí.\n",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5026",
+      "type": "string"
+    },
+    {
+      "key": "fechaPrueba",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "pacienteId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "especialidadId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "medicoId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "programacionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "citaId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01. Listar pacientes e iniciar pruebas (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/pacientes",
+        "description": "## Paso 1: Listar pacientes e iniciar pruebas\n\nConsulta los datos simulados. Este paso prepara una fecha de prueba siete días después del día actual en Lima y borra los IDs de la ejecución anterior.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 200. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde."
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const lima = new Date(Date.now() - 5*60*60*1000);",
+              "lima.setUTCDate(lima.getUTCDate()+7);",
+              "pm.collectionVariables.set(\"fechaPrueba\", lima.toISOString().slice(0,10));",
+              "[\"pacienteId\",\"especialidadId\",\"medicoId\",\"programacionId\",\"citaId\"].forEach(k => pm.collectionVariables.unset(k));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200 esperado\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02. Crear paciente válido (201)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/pacientes",
+        "description": "## Paso 2: Crear paciente válido\n\nCrea un paciente ficticio propio de estas pruebas. Guarda pacienteId automáticamente.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 201. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombres\": \"Andrea\",\n  \"apellidos\": \"Salazar Prueba\",\n  \"dni\": \"87654321\",\n  \"telefono\": \"987654321\",\n  \"correo\": \"andrea@example.com\",\n  \"activo\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201 esperado\", function () { pm.response.to.have.status(201); });",
+              "if(pm.response.code === 201) { const r=pm.response.json(); pm.collectionVariables.set(\"pacienteId\", r.id); pm.test(\"ID generado\", function() { pm.expect(r.id).to.be.above(0); }); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03. Rechazar DNI inválido (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/pacientes",
+        "description": "## Paso 3: Rechazar DNI inválido\n\nValidación del DTO: el DNI debe contener exactamente ocho dígitos.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 400. Revisa Body y Test Results. Este rechazo es intencional: una prueba correcta debe mostrar este código, no 200.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombres\": \"Andrea\",\n  \"apellidos\": \"Salazar Prueba\",\n  \"dni\": \"123\",\n  \"telefono\": \"987654321\",\n  \"correo\": \"andrea@example.com\",\n  \"activo\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400 esperado\", function () { pm.response.to.have.status(400); });",
+              "pm.test(\"Error JSON con estado\", function () { const r=pm.response.json(); pm.expect(r.status).to.eql(400); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04. Rechazar DNI duplicado (409)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/pacientes",
+        "description": "## Paso 4: Rechazar DNI duplicado\n\nRN01: no se permite registrar dos pacientes con el mismo DNI.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 409. Revisa Body y Test Results. Este rechazo es intencional: una prueba correcta debe mostrar este código, no 200.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombres\": \"Andrea\",\n  \"apellidos\": \"Salazar Prueba\",\n  \"dni\": \"87654321\",\n  \"telefono\": \"987654321\",\n  \"correo\": \"andrea@example.com\",\n  \"activo\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409 esperado\", function () { pm.response.to.have.status(409); });",
+              "pm.test(\"Error JSON con estado\", function () { const r=pm.response.json(); pm.expect(r.status).to.eql(409); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05. Consultar paciente creado (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/pacientes/{{pacienteId}}",
+        "description": "## Paso 5: Consultar paciente creado\n\nRecupera el paciente usando el ID capturado, sin escribirlo manualmente.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 200. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200 esperado\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06. Actualizar paciente (200)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/pacientes/{{pacienteId}}",
+        "description": "## Paso 6: Actualizar paciente\n\nCambia el teléfono. En este proyecto PUT devuelve 200 con el objeto actualizado, no 204.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 200. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombres\": \"Andrea\",\n  \"apellidos\": \"Salazar Prueba\",\n  \"dni\": \"87654321\",\n  \"telefono\": \"912345678\",\n  \"correo\": \"andrea@example.com\",\n  \"activo\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200 esperado\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07. Consultar paciente inexistente (404)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/pacientes/2147483647",
+        "description": "## Paso 7: Consultar paciente inexistente\n\nComprueba que un ID inexistente produce un error controlado.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 404. Revisa Body y Test Results. Este rechazo es intencional: una prueba correcta debe mostrar este código, no 200."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404 esperado\", function () { pm.response.to.have.status(404); });",
+              "pm.test(\"Error JSON con estado\", function () { const r=pm.response.json(); pm.expect(r.status).to.eql(404); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08. Listar especialidades (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/especialidades",
+        "description": "## Paso 8: Listar especialidades\n\n\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 200. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200 esperado\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09. Crear especialidad (201)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/especialidades",
+        "description": "## Paso 9: Crear especialidad\n\nCrea una especialidad para el médico de prueba.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 201. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Neurología Prueba Postman\",\n  \"activo\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201 esperado\", function () { pm.response.to.have.status(201); });",
+              "if(pm.response.code === 201) { const r=pm.response.json(); pm.collectionVariables.set(\"especialidadId\", r.id); pm.test(\"ID generado\", function() { pm.expect(r.id).to.be.above(0); }); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Consultar especialidad (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/especialidades/{{especialidadId}}",
+        "description": "## Paso 10: Consultar especialidad\n\n\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 200. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200 esperado\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. Actualizar especialidad (200)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/especialidades/{{especialidadId}}",
+        "description": "## Paso 11: Actualizar especialidad\n\n\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 200. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Neurología Clínica Postman\",\n  \"activo\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200 esperado\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12. Rechazar especialidad duplicada (409)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/especialidades",
+        "description": "## Paso 12: Rechazar especialidad duplicada\n\nRN01: el nombre de una especialidad no debe repetirse.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 409. Revisa Body y Test Results. Este rechazo es intencional: una prueba correcta debe mostrar este código, no 200.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Neurología Clínica Postman\",\n  \"activo\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409 esperado\", function () { pm.response.to.have.status(409); });",
+              "pm.test(\"Error JSON con estado\", function () { const r=pm.response.json(); pm.expect(r.status).to.eql(409); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13. Listar médicos (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/medicos",
+        "description": "## Paso 13: Listar médicos\n\n\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 200. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200 esperado\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14. Crear médico con especialidad (201)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/medicos",
+        "description": "## Paso 14: Crear médico con especialidad\n\nRelaciona al médico con la especialidad recién creada.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 201. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombres\": \"Gabriel\",\n  \"apellidos\": \"Ramos Prueba\",\n  \"cmp\": \"654321\",\n  \"especialidadIds\": [\n    {{especialidadId}}\n  ],\n  \"activo\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201 esperado\", function () { pm.response.to.have.status(201); });",
+              "if(pm.response.code === 201) { const r=pm.response.json(); pm.collectionVariables.set(\"medicoId\", r.id); pm.test(\"ID generado\", function() { pm.expect(r.id).to.be.above(0); }); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15. Consultar médico (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/medicos/{{medicoId}}",
+        "description": "## Paso 15: Consultar médico\n\n\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 200. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200 esperado\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16. Actualizar médico (200)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/medicos/{{medicoId}}",
+        "description": "## Paso 16: Actualizar médico\n\n\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 200. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombres\": \"Gabriel Andrés\",\n  \"apellidos\": \"Ramos Prueba\",\n  \"cmp\": \"654321\",\n  \"especialidadIds\": [\n    {{especialidadId}}\n  ],\n  \"activo\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200 esperado\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "17. Filtrar médicos por especialidad (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/medicos/por-especialidad/{{especialidadId}}",
+        "description": "## Paso 17: Filtrar médicos por especialidad\n\nMuestra los médicos que tienen asignada esta especialidad.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 200. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200 esperado\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "18. Rechazar CMP duplicado (409)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/medicos",
+        "description": "## Paso 18: Rechazar CMP duplicado\n\nRN01: el CMP del médico debe ser único.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 409. Revisa Body y Test Results. Este rechazo es intencional: una prueba correcta debe mostrar este código, no 200.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombres\": \"Gabriel\",\n  \"apellidos\": \"Ramos Prueba\",\n  \"cmp\": \"654321\",\n  \"especialidadIds\": [\n    {{especialidadId}}\n  ],\n  \"activo\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409 esperado\", function () { pm.response.to.have.status(409); });",
+              "pm.test(\"Error JSON con estado\", function () { const r=pm.response.json(); pm.expect(r.status).to.eql(409); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "19. Listar programaciones (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/programaciones",
+        "description": "## Paso 19: Listar programaciones\n\n\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 200. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200 esperado\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "20. Rechazar especialidad no asignada (409)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/programaciones",
+        "description": "## Paso 20: Rechazar especialidad no asignada\n\nRN02: el médico de prueba solo tiene la especialidad creada. No puede recibir un turno de Medicina General (ID 1).\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 409. Revisa Body y Test Results. Este rechazo es intencional: una prueba correcta debe mostrar este código, no 200.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"medicoId\": {{medicoId}},\n  \"especialidadId\": 1,\n  \"fecha\": \"{{fechaPrueba}}\",\n  \"horaInicio\": \"09:00:00\",\n  \"horaFin\": \"11:00:00\",\n  \"activo\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409 esperado\", function () { pm.response.to.have.status(409); });",
+              "pm.test(\"Error JSON con estado\", function () { const r=pm.response.json(); pm.expect(r.status).to.eql(409); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "21. Rechazar turno en el pasado (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/programaciones",
+        "description": "## Paso 21: Rechazar turno en el pasado\n\nRN03: una programación debe comenzar en el futuro.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 400. Revisa Body y Test Results. Este rechazo es intencional: una prueba correcta debe mostrar este código, no 200.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"medicoId\": {{medicoId}},\n  \"especialidadId\": {{especialidadId}},\n  \"fecha\": \"2000-01-01\",\n  \"horaInicio\": \"09:00:00\",\n  \"horaFin\": \"11:00:00\",\n  \"activo\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400 esperado\", function () { pm.response.to.have.status(400); });",
+              "pm.test(\"Error JSON con estado\", function () { const r=pm.response.json(); pm.expect(r.status).to.eql(400); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "22. Crear programación válida (201)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/programaciones",
+        "description": "## Paso 22: Crear programación válida\n\nRN03: turno futuro de 09:00 a 11:00, que permite seis citas completas de veinte minutos.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 201. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"medicoId\": {{medicoId}},\n  \"especialidadId\": {{especialidadId}},\n  \"fecha\": \"{{fechaPrueba}}\",\n  \"horaInicio\": \"09:00:00\",\n  \"horaFin\": \"11:00:00\",\n  \"activo\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201 esperado\", function () { pm.response.to.have.status(201); });",
+              "if(pm.response.code === 201) { const r=pm.response.json(); pm.collectionVariables.set(\"programacionId\", r.id); pm.test(\"ID generado\", function() { pm.expect(r.id).to.be.above(0); }); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "23. Consultar programación (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/programaciones/{{programacionId}}",
+        "description": "## Paso 23: Consultar programación\n\n\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 200. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200 esperado\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "24. Actualizar programación sin citas (200)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/programaciones/{{programacionId}}",
+        "description": "## Paso 24: Actualizar programación sin citas\n\nAmplía el turno hasta las 11:20. Todavía no tiene citas asociadas.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 200. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"medicoId\": {{medicoId}},\n  \"especialidadId\": {{especialidadId}},\n  \"fecha\": \"{{fechaPrueba}}\",\n  \"horaInicio\": \"09:00:00\",\n  \"horaFin\": \"11:20:00\",\n  \"activo\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200 esperado\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "25. Rechazar programación superpuesta (409)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/programaciones",
+        "description": "## Paso 25: Rechazar programación superpuesta\n\nRN03: el mismo médico no puede tener dos turnos que se crucen.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 409. Revisa Body y Test Results. Este rechazo es intencional: una prueba correcta debe mostrar este código, no 200.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"medicoId\": {{medicoId}},\n  \"especialidadId\": {{especialidadId}},\n  \"fecha\": \"{{fechaPrueba}}\",\n  \"horaInicio\": \"09:00:00\",\n  \"horaFin\": \"11:00:00\",\n  \"activo\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409 esperado\", function () { pm.response.to.have.status(409); });",
+              "pm.test(\"Error JSON con estado\", function () { const r=pm.response.json(); pm.expect(r.status).to.eql(409); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "26. Filtrar programaciones (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/programaciones?medicoId={{medicoId}}&especialidadId={{especialidadId}}",
+        "description": "## Paso 26: Filtrar programaciones\n\nCombina los filtros opcionales de médico y especialidad.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 200. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200 esperado\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "27. Consultar bloques disponibles (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/programaciones/{{programacionId}}/disponibilidad",
+        "description": "## Paso 27: Consultar bloques disponibles\n\nRN05: se esperan siete bloques completos de veinte minutos entre 09:00 y 11:20.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 200. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200 esperado\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Siete bloques disponibles\", function(){ const r=pm.response.json(); pm.expect(r.length).to.eql(7); pm.expect(r.every(x=>x.disponible)).to.eql(true); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "28. Listar citas (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/citas",
+        "description": "## Paso 28: Listar citas\n\n\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 200. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200 esperado\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "29. Rechazar paciente inactivo (409)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/citas",
+        "description": "## Paso 29: Rechazar paciente inactivo\n\nRN04: el paciente simulado con ID 12 está inactivo y no puede reservar. Requiere los datos iniciales originales.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 409. Revisa Body y Test Results. Este rechazo es intencional: una prueba correcta debe mostrar este código, no 200.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pacienteId\": 12,\n  \"programacionId\": {{programacionId}},\n  \"horaInicio\": \"09:00:00\",\n  \"motivo\": \"Control de prueba Postman\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409 esperado\", function () { pm.response.to.have.status(409); });",
+              "pm.test(\"Error JSON con estado\", function () { const r=pm.response.json(); pm.expect(r.status).to.eql(409); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "30. Rechazar hora fuera de bloque (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/citas",
+        "description": "## Paso 30: Rechazar hora fuera de bloque\n\nRN05: los bloques de este turno comienzan a las 09:00, 09:20, 09:40, etc. Las 09:10 no son un inicio permitido.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 400. Revisa Body y Test Results. Este rechazo es intencional: una prueba correcta debe mostrar este código, no 200.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pacienteId\": {{pacienteId}},\n  \"programacionId\": {{programacionId}},\n  \"horaInicio\": \"09:10:00\",\n  \"motivo\": \"Control de prueba Postman\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400 esperado\", function () { pm.response.to.have.status(400); });",
+              "pm.test(\"Error JSON con estado\", function () { const r=pm.response.json(); pm.expect(r.status).to.eql(400); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "31. Crear cita válida (201)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/citas",
+        "description": "## Paso 31: Crear cita válida\n\nReserva de 09:00 a 09:20. La API calcula la hora final, el médico y la especialidad.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 201. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pacienteId\": {{pacienteId}},\n  \"programacionId\": {{programacionId}},\n  \"horaInicio\": \"09:00:00\",\n  \"motivo\": \"Control de prueba Postman\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201 esperado\", function () { pm.response.to.have.status(201); });",
+              "if(pm.response.code === 201) { const r=pm.response.json(); pm.collectionVariables.set(\"citaId\", r.id); pm.test(\"ID generado\", function() { pm.expect(r.id).to.be.above(0); }); }",
+              "pm.test(\"Cita programada\", function(){ pm.expect(pm.response.json().estado).to.eql(\"Programada\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "32. Consultar cita creada (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/citas/{{citaId}}",
+        "description": "## Paso 32: Consultar cita creada\n\n\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 200. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200 esperado\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "33. Rechazar doble reserva (409)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/citas",
+        "description": "## Paso 33: Rechazar doble reserva\n\nRN06: el paciente y el médico ya tienen una cita que ocupa ese horario.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 409. Revisa Body y Test Results. Este rechazo es intencional: una prueba correcta debe mostrar este código, no 200.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pacienteId\": {{pacienteId}},\n  \"programacionId\": {{programacionId}},\n  \"horaInicio\": \"09:00:00\",\n  \"motivo\": \"Control de prueba Postman\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409 esperado\", function () { pm.response.to.have.status(409); });",
+              "pm.test(\"Error JSON con estado\", function () { const r=pm.response.json(); pm.expect(r.status).to.eql(409); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "34. Ver bloque ocupado (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/programaciones/{{programacionId}}/disponibilidad",
+        "description": "## Paso 34: Ver bloque ocupado\n\nLa reserva debe marcar las 09:00 como no disponibles.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 200. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200 esperado\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"09:00 ocupado\", function(){ const b=pm.response.json().find(x=>x.horaInicio.startsWith(\"09:00\")); pm.expect(b).to.exist; pm.expect(b.disponible).to.eql(false); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "35. Proteger paciente con citas (409)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/pacientes/{{pacienteId}}",
+        "description": "## Paso 35: Proteger paciente con citas\n\nRN08: no se puede borrar un paciente al que todavía se vincula una cita.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 409. Revisa Body y Test Results. Este rechazo es intencional: una prueba correcta debe mostrar este código, no 200."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409 esperado\", function () { pm.response.to.have.status(409); });",
+              "pm.test(\"Error JSON con estado\", function () { const r=pm.response.json(); pm.expect(r.status).to.eql(409); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "36. Proteger programación con citas (409)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/programaciones/{{programacionId}}",
+        "description": "## Paso 36: Proteger programación con citas\n\nRN08: no se puede borrar el turno mientras tenga citas asociadas.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 409. Revisa Body y Test Results. Este rechazo es intencional: una prueba correcta debe mostrar este código, no 200."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409 esperado\", function () { pm.response.to.have.status(409); });",
+              "pm.test(\"Error JSON con estado\", function () { const r=pm.response.json(); pm.expect(r.status).to.eql(409); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "37. Reprogramar cita (200)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/citas/{{citaId}}",
+        "description": "## Paso 37: Reprogramar cita\n\nRN07: mueve la cita de 09:00 a 09:40 y conserva al mismo paciente.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 200. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"programacionId\": {{programacionId}},\n  \"horaInicio\": \"09:40:00\",\n  \"motivo\": \"Cambio de horario solicitado\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200 esperado\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "38. Cancelar cita conservando historial (200)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/citas/{{citaId}}/cancelacion",
+        "description": "## Paso 38: Cancelar cita conservando historial\n\nRN07: cambia el estado a Cancelada y libera el bloque, pero conserva el registro.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 200. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"motivo\": \"El paciente solicita cancelar\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200 esperado\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Estado Cancelada\", function(){ pm.expect(pm.response.json().estado).to.eql(\"Cancelada\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "39. Comprobar horario liberado (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/programaciones/{{programacionId}}/disponibilidad",
+        "description": "## Paso 39: Comprobar horario liberado\n\nDespués de cancelar, los siete bloques deben estar disponibles.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 200. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200 esperado\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Todos los bloques libres\", function(){ pm.expect(pm.response.json().every(x=>x.disponible)).to.eql(true); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "40. Rechazar reprogramar cita cancelada (409)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/citas/{{citaId}}",
+        "description": "## Paso 40: Rechazar reprogramar cita cancelada\n\nRN07: solo se puede reprogramar una cita futura con estado Programada.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 409. Revisa Body y Test Results. Este rechazo es intencional: una prueba correcta debe mostrar este código, no 200.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"programacionId\": {{programacionId}},\n  \"horaInicio\": \"09:40:00\",\n  \"motivo\": \"Cambio de horario solicitado\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409 esperado\", function () { pm.response.to.have.status(409); });",
+              "pm.test(\"Error JSON con estado\", function () { const r=pm.response.json(); pm.expect(r.status).to.eql(409); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "41. Proteger turno incluso con cita cancelada (409)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/programaciones/{{programacionId}}",
+        "description": "## Paso 41: Proteger turno incluso con cita cancelada\n\nRN08: la cancelación conserva la relación histórica. Debe existir el turno mientras exista esa cita.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 409. Revisa Body y Test Results. Este rechazo es intencional: una prueba correcta debe mostrar este código, no 200."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409 esperado\", function () { pm.response.to.have.status(409); });",
+              "pm.test(\"Error JSON con estado\", function () { const r=pm.response.json(); pm.expect(r.status).to.eql(409); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "42. Eliminar físicamente cita de prueba (204)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/citas/{{citaId}}",
+        "description": "## Paso 42: Eliminar físicamente cita de prueba\n\nLimpieza de datos creados en esta práctica. DELETE borra la cita; PATCH conserva su historial.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 204. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204 esperado\", function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "43. Confirmar cita eliminada (404)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/citas/{{citaId}}",
+        "description": "## Paso 43: Confirmar cita eliminada\n\n\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 404. Revisa Body y Test Results. Este rechazo es intencional: una prueba correcta debe mostrar este código, no 200."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404 esperado\", function () { pm.response.to.have.status(404); });",
+              "pm.test(\"Error JSON con estado\", function () { const r=pm.response.json(); pm.expect(r.status).to.eql(404); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "44. Eliminar programación de prueba (204)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/programaciones/{{programacionId}}",
+        "description": "## Paso 44: Eliminar programación de prueba\n\n\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 204. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204 esperado\", function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "45. Eliminar médico de prueba (204)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/medicos/{{medicoId}}",
+        "description": "## Paso 45: Eliminar médico de prueba\n\n\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 204. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204 esperado\", function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "46. Eliminar especialidad de prueba (204)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/especialidades/{{especialidadId}}",
+        "description": "## Paso 46: Eliminar especialidad de prueba\n\n\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 204. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204 esperado\", function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "47. Eliminar paciente de prueba (204)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/pacientes/{{pacienteId}}",
+        "description": "## Paso 47: Eliminar paciente de prueba\n\n\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 204. Revisa Body y Test Results. Continúa con la siguiente solicitud cuando las pruebas estén en verde."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204 esperado\", function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "48. Simular error interno controlado (500)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/citas/simular-error-500",
+        "description": "## Paso 48: Simular error interno controlado\n\nComprueba el middleware en Development. El error es intencional y debe devolver JSON seguro, sin mostrar la excepción interna. En otros entornos se espera 404; esta prueba está diseñada para Development.\n\n**Cómo probar:** abre esta solicitud y pulsa Send. El método, dirección y Body ya están preparados. No cambies las variables entre llaves.\n\n**Resultado esperado:** HTTP 500. Revisa Body y Test Results. Este rechazo es intencional: una prueba correcta debe mostrar este código, no 200."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 500 esperado\", function () { pm.response.to.have.status(500); });",
+              "pm.test(\"Error JSON con estado\", function () { const r=pm.response.json(); pm.expect(r.status).to.eql(500); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
