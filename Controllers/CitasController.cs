@@ -1,4 +1,4 @@
-// Recibe solicitudes HTTP para consultar y administrar citas.
+ // Recibe solicitudes HTTP para consultar y administrar citas.
 using GestionCitasAPI.Models;
 using GestionCitasAPI.Services;
 using Microsoft.AspNetCore.Mvc;
